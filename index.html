@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YA Cell Dashboard</title>
+<style>
+:root { color-scheme: light; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #f0f2f5; min-height: 100vh; font-size: 14px;
+}
+
+/* ── Header ── */
+.header {
+  background: #fff; border-bottom: 1px solid #e5e7eb;
+  padding: 12px 18px; display: flex; align-items: center;
+  justify-content: space-between; position: sticky; top: 0; z-index: 100; gap: 10px;
+}
+.header-title { font-size: 16px; font-weight: 700; color: #111; letter-spacing: -0.2px; }
+.header-sub { font-size: 11px; color: #9ca3af; margin-top: 3px; display: flex; align-items: center; gap: 5px; }
+.status-dot {
+  width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+  background: #d1d5db; transition: background 0.3s;
+}
+.status-dot.live    { background: #25d366; }
+.status-dot.loading { background: #f59e0b; animation: pulse 0.8s ease-in-out infinite; }
+.status-dot.error   { background: #ef4444; }
+.status-text { color: #6b7280; font-size: 11px; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+.header-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.refresh-btn {
+  background: #128C7E; color: #fff; border: none;
+  border-radius: 8px; padding: 7px 14px;
+  font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap;
+  transition: background 0.15s;
+}
+.refresh-btn:hover { background: #0f7068; }
+.refresh-btn:disabled { background: #9ca3af; cursor: default; }
+.spin { display: inline-block; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Nav ── */
+.nav {
+  display: flex; background: #fff;
+  border-bottom: 1px solid #e5e7eb; padding: 0 18px;
+}
+.nav-tab {
+  padding: 11px 16px; font-size: 13px; font-weight: 500; color: #6b7280;
+  background: none; border: none; border-bottom: 2px solid transparent;
+  cursor: pointer; transition: all 0.15s; white-space: nowrap;
+}
+.nav-tab:hover { color: #128C7E; }
+.nav-tab.active { color: #128C7E; border-bottom-color: #128C7E; font-weight: 700; }
+
+/* ── Pages ── */
+.page { padding: 16px 18px; }
+
+/* ── Chips ── */
+.chips-row {
+  display: flex; gap: 7px; overflow-x: auto;
+  padding-bottom: 6px; margin-bottom: 14px;
+  scrollbar-width: thin; scrollbar-color: #d1d5db transparent;
+}
+.chips-row::-webkit-scrollbar { height: 4px; }
+.chips-row::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
+.chip {
+  flex-shrink: 0; border: 1.5px solid #e0e0e0; border-radius: 20px;
+  padding: 6px 13px; font-size: 12px; cursor: pointer;
+  background: #fff; color: #555; white-space: nowrap; transition: all 0.15s;
+}
+.chip:hover { border-color: #25d366; color: #128C7E; }
+.chip.active { background: #128C7E; border-color: #128C7E; color: #fff; font-weight: 600; }
+.chip.today { border-color: #f59e0b; color: #b45309; }
+.chip.today.active { background: #f59e0b; border-color: #f59e0b; color: #fff; }
+
+/* ── Event heading ── */
+.event-heading {
+  font-size: 14px; font-weight: 700; color: #111;
+  margin-bottom: 12px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.day-badge {
+  font-size: 11px; font-weight: 600; padding: 2px 9px;
+  border-radius: 20px; background: #dcfce7; color: #166534;
+}
+.day-badge.is-today { background: #fef3c7; color: #92400e; }
+
+/* ── Room table ── */
+.room-card { background: #fff; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); overflow: hidden; }
+.room-table { width: 100%; border-collapse: collapse; }
+.room-table th {
+  text-align: left; padding: 9px 14px;
+  font-size: 10px; font-weight: 700; color: #9ca3af;
+  text-transform: uppercase; letter-spacing: 0.6px;
+  background: #f9fafb; border-bottom: 1px solid #f0f0f0;
+}
+.room-table td { padding: 10px 14px; color: #222; border-bottom: 1px solid #f5f5f5; vertical-align: middle; }
+.room-table tr:last-child td { border-bottom: none; }
+.room-table tr:hover td { background: #fafafa; }
+.room-name { font-weight: 600; color: #111; }
+.badge { display: inline-flex; align-items: center; gap: 3px; font-size: 10px; padding: 2px 8px; border-radius: 20px; font-weight: 600; white-space: nowrap; }
+.badge-std   { background: #dcfce7; color: #166534; }
+.badge-ac    { background: #dbeafe; color: #1e40af; }
+.badge-piano { background: #fef3c7; color: #92400e; margin-left: 4px; }
+.no-rooms { text-align: center; color: #bbb; font-size: 13px; padding: 36px 20px; background: #fff; border-radius: 12px; }
+
+/* ── Skeleton loader ── */
+.skeleton { background: #f0f0f0; border-radius: 6px; animation: shimmer 1.2s infinite; }
+@keyframes shimmer { 0%,100%{opacity:0.6} 50%{opacity:1} }
+
+/* ── Newcomers ── */
+#page-newcomers { max-width: 900px; margin: 0 auto; }
+.upload-zone {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  border: 2px dashed #d1d5db; border-radius: 12px;
+  padding: 40px 20px; background: #fff;
+  cursor: pointer; transition: all 0.2s; margin-bottom: 16px;
+}
+.upload-zone:hover, .upload-zone.drag { border-color: #25d366; background: #f0fdf4; }
+.upload-zone input[type="file"] { display: none; }
+.upload-icon  { font-size: 36px; margin-bottom: 10px; }
+.upload-title { font-size: 15px; font-weight: 700; color: #374151; margin-bottom: 4px; text-align: center; }
+.upload-sub   { font-size: 12px; color: #9ca3af; margin-bottom: 14px; text-align: center; }
+.upload-cta {
+  display: inline-block; background: #128C7E; color: #fff; border: none;
+  border-radius: 8px; padding: 8px 18px; font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.upload-cta:hover { background: #0f7068; }
+.table-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; gap: 10px; flex-wrap: wrap; }
+.nc-count { font-size: 12px; color: #6b7280; }
+.search-box { border: 1.5px solid #e0e0e0; border-radius: 8px; padding: 6px 11px; font-size: 13px; outline: none; width: 190px; transition: border-color 0.15s; }
+.search-box:focus { border-color: #128C7E; }
+.nc-table-wrap { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); }
+.nc-table { width: 100%; border-collapse: collapse; background: #fff; }
+.nc-table th {
+  text-align: left; padding: 9px 13px; font-size: 10px; font-weight: 700; color: #9ca3af;
+  text-transform: uppercase; letter-spacing: 0.5px; background: #f9fafb;
+  border-bottom: 1px solid #f0f0f0; cursor: pointer; user-select: none; white-space: nowrap;
+}
+.nc-table th:hover { color: #128C7E; }
+.nc-table th.sort-asc::after  { content: ' ↑'; color: #128C7E; }
+.nc-table th.sort-desc::after { content: ' ↓'; color: #128C7E; }
+.nc-table td { padding: 9px 13px; color: #222; border-bottom: 1px solid #f5f5f5; white-space: nowrap; }
+.nc-table tr:last-child td { border-bottom: none; }
+.nc-table tr:hover td { background: #fafafa; }
+.gender-m { color: #1d4ed8; font-weight: 600; }
+.gender-f { color: #be185d; font-weight: 600; }
+.days-warn   { color: #b45309; font-weight: 600; }
+.days-danger { color: #dc2626; font-weight: 600; }
+.empty-nc { text-align: center; color: #bbb; font-size: 13px; padding: 36px; }
+
+/* ── NC Controls ── */
+.nc-controls { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.nc-ctrl-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.nc-ctrl-label { font-size: 10px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; min-width: 38px; }
+.sort-btn {
+  border: 1.5px solid #e0e0e0; border-radius: 7px;
+  padding: 5px 11px; font-size: 12px; font-weight: 500;
+  background: #fff; color: #555; cursor: pointer; transition: all 0.15s; white-space: nowrap;
+}
+.sort-btn:hover { border-color: #128C7E; color: #128C7E; }
+.sort-btn.active { background: #128C7E; border-color: #128C7E; color: #fff; font-weight: 700; }
+.fchip {
+  border: 1.5px solid #e0e0e0; border-radius: 20px;
+  padding: 5px 12px; font-size: 12px; font-weight: 500;
+  background: #fff; color: #555; cursor: pointer; transition: all 0.15s; white-space: nowrap;
+}
+.fchip:hover { border-color: #128C7E; color: #128C7E; }
+.fchip.active { background: #128C7E; border-color: #128C7E; color: #fff; font-weight: 700; }
+.fchip.warn.active   { background: #f59e0b; border-color: #f59e0b; }
+.fchip.danger.active { background: #ef4444; border-color: #ef4444; }
+
+/* ── Cell overview copy buttons ── */
+.cell-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 11px 14px; border-bottom: 1px solid #f0f0f0; background: #f9fafb; }
+.cell-card-title { font-weight: 700; font-size: 13.5px; color: #111; }
+.mini-copy-btn { flex-shrink: 0; background: #f0f0f0; border: none; border-radius: 6px; padding: 4px 10px; font-size: 11px; font-weight: 600; cursor: pointer; color: #333; white-space: nowrap; }
+.mini-copy-btn:hover { background: #e0e0e0; }
+.mini-copy-btn.copied { background: #d4edda; color: #1a7431; }
+.copy-all-btn { background: #fff; border: 1.5px solid #128C7E; color: #128C7E; border-radius: 8px; padding: 6px 13px; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.copy-all-btn:hover { background: #f0fdf4; }
+.copy-all-btn.copied { background: #d4edda; border-color: #1a7431; color: #1a7431; }
+
+/* ── WA Messages ── */
+.wa-messages { display: flex; flex-direction: column; gap: 12px; }
+.wa-msg-block { border: 1.5px solid #e8e8e8; border-radius: 10px; overflow: hidden; background: #fff; }
+.wa-msg-header { display: flex; align-items: center; justify-content: space-between; padding: 9px 13px; background: #f9f9f9; border-bottom: 1px solid #e8e8e8; flex-wrap: wrap; gap: 6px; }
+.wa-msg-label { font-size: 13px; font-weight: 600; color: #333; }
+.wa-msg-badge { font-size: 11px; padding: 2px 8px; border-radius: 20px; font-weight: 500; }
+.wa-badge-std { background: #dcfce7; color: #166534; }
+.wa-badge-sp  { background: #dbeafe; color: #1e40af; }
+.wa-msg-body { display: block; width: 100%; padding: 11px 13px; font-size: 13.5px; line-height: 1.65; white-space: pre-wrap; font-family: inherit; color: #222; background: white; border: none; outline: none; resize: none; cursor: text; overflow: hidden; }
+.wa-copy-btn { display: flex; align-items: center; gap: 5px; margin: 0 13px 11px; background: #f0f0f0; border: none; border-radius: 6px; padding: 6px 13px; font-size: 13px; cursor: pointer; color: #333; font-weight: 500; }
+.wa-copy-btn:hover { background: #e0e0e0; }
+.wa-copy-btn.copied { background: #d4edda; color: #1a7431; }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div>
+    <div class="header-title">⛪ YA Cell Dashboard</div>
+    <div class="header-sub">
+      <span class="status-dot" id="statusDot"></span>
+      <span class="status-text" id="statusText">Connecting…</span>
+      <span id="ncStatusSep" style="display:none"> &nbsp;·&nbsp; </span>
+      <span id="ncStatusText" style="display:none; color:#6b7280"></span>
+    </div>
+  </div>
+  <div class="header-actions">
+    <button class="refresh-btn" id="refreshBtn" onclick="manualRefresh()">↻ Refresh</button>
+  </div>
+</div>
+
+<!-- Navigation -->
+<div class="nav">
+  <button class="nav-tab active" id="tab-rooms"     onclick="switchPage('rooms')">📋 Cell Rooms</button>
+  <button class="nav-tab"        id="tab-celllist"  onclick="switchPage('celllist')">🗂️ Cell List</button>
+  <button class="nav-tab"        id="tab-wagen"     onclick="switchPage('wagen')">💬 WA Messages</button>
+  <button class="nav-tab"        id="tab-newcomers" onclick="switchPage('newcomers')">👥 Newcomers</button>
+</div>
+
+<!-- Page: Cell Rooms -->
+<div id="page-rooms" class="page">
+  <div class="chips-row" id="eventChips"></div>
+  <div id="roomsContent"></div>
+</div>
+
+<!-- Page: Cell List (per-cell overview across all upcoming dates) -->
+<div id="page-celllist" class="page" style="display:none">
+  <div class="table-toolbar" style="margin-bottom:12px">
+    <span style="font-size:12px;color:#6b7280">Every cell, with all its upcoming dates &amp; rooms</span>
+    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap">
+      <input class="search-box" type="text" id="cellSearch" placeholder="🔍 Search cell name…" oninput="renderCellOverview()">
+      <button class="copy-all-btn" id="copyAllBtn" onclick="copyAllCells(this)">📋 Copy All</button>
+    </div>
+  </div>
+  <div id="cellListContent"></div>
+</div>
+
+<!-- Page: WA Messages (per-event, ready-to-send templates) -->
+<div id="page-wagen" class="page" style="display:none">
+  <div class="chips-row" id="eventChipsWA"></div>
+  <div id="wagenContent"></div>
+</div>
+
+<!-- Page: Newcomers -->
+<div id="page-newcomers" class="page" style="display:none">
+  <label class="upload-zone" id="uploadZone"
+    ondragover="dragOver(event)" ondragleave="dragLeave()" ondrop="dropFile(event)">
+    <input type="file" id="csvInput" accept=".csv" onchange="handleFile(this.files[0])">
+    <div class="upload-icon">📋</div>
+    <div class="upload-title">Upload Newcomer CSV</div>
+    <div class="upload-sub">Drag & drop or click below to load your newcomer list</div>
+    <span class="upload-cta" onclick="event.preventDefault(); document.getElementById('csvInput').click()">Choose CSV File</span>
+  </label>
+  <div id="newcomerSection" style="display:none">
+    <div class="nc-controls">
+      <div class="nc-ctrl-row">
+        <span class="nc-ctrl-label">Sort</span>
+        <button class="sort-btn active" id="sort-az"     onclick="setSort('az')">A → Z</button>
+        <button class="sort-btn"        id="sort-za"     onclick="setSort('za')">Z → A</button>
+        <button class="sort-btn"        id="sort-recent" onclick="setSort('recent')">🕐 Recent Contact</button>
+        <span style="flex:1;min-width:8px"></span>
+        <input class="search-box" type="text" id="ncSearch" placeholder="🔍 Search name, cell…" oninput="renderNC()">
+      </div>
+      <div class="nc-ctrl-row">
+        <span class="nc-ctrl-label">Filter</span>
+        <button class="fchip active" id="fchip-all"  onclick="setFilter('all')">All</button>
+        <button class="fchip"        id="fchip-week" onclick="setFilter('week')">This Week</button>
+        <button class="fchip"        id="fchip-30"   onclick="setFilter('30')">≤ 30 days</button>
+        <button class="fchip warn"   id="fchip-31"   onclick="setFilter('31')">31 – 60 days</button>
+        <button class="fchip danger" id="fchip-60"   onclick="setFilter('60')">60+ days</button>
+        <span class="nc-count" id="ncCount" style="margin-left:auto;white-space:nowrap;font-size:12px;color:#6b7280"></span>
+      </div>
+    </div>
+    <div class="nc-table-wrap">
+      <table class="nc-table">
+        <thead><tr id="ncHead"></tr></thead>
+        <tbody id="ncBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── FALLBACK DATA (used only if the /api/events fetch fails) ──────────────
+const FALLBACK_EVENTS = [
+  { date: "2026-07-31T19:00:00+08:00", description: "M3-5: Seekers of Rest\nM6-1: Happy Space\nSanc 3: VVAVES ZONE" },
+  { date: "2026-08-05T18:00:00+08:00", description: "Hospitality, M3-3: The Branch\nM6-1: The Dwelling" }
+];
+// ─────────────────────────────────────────────────────────────────────────
+
+// ── STATE ─────────────────────────────────────────────────────────────────
+let liveEvents     = null;   // null = not fetched yet
+let lastFetchTime  = null;
+let selectedIdx    = 0;
+let selectedIdxCL  = 0;
+let selectedIdxWA  = 0;
+let isFetching     = false;
+let CELL_OVERVIEW_TEXTS = [];  // plain-text copy blocks, one per rendered cell card
+const REFRESH_MS   = 5 * 60 * 1000;  // 5 minutes
+
+// ── PAGE SWITCH ───────────────────────────────────────────────────────────
+function switchPage(page) {
+  ['rooms','celllist','wagen','newcomers'].forEach(p => {
+    document.getElementById('page-' + p).style.display = p === page ? '' : 'none';
+    document.getElementById('tab-' + p).classList.toggle('active', p === page);
+  });
+}
+
+// ── LIVE FETCH (via our own /api/events serverless function) ──────────────
+function getSGTMidnight(offsetDays) {
+  const sgtNow = new Date(Date.now() + 8 * 3600 * 1000);
+  sgtNow.setUTCHours(0, 0, 0, 0);
+  sgtNow.setUTCDate(sgtNow.getUTCDate() + offsetDays);
+  const p = n => n.toString().padStart(2, '0');
+  return `${sgtNow.getUTCFullYear()}-${p(sgtNow.getUTCMonth()+1)}-${p(sgtNow.getUTCDate())}T00:00:00+08:00`;
+}
+
+function fmtRelative(date) {
+  const diff = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (diff < 10)  return 'just now';
+  if (diff < 60)  return `${diff}s ago`;
+  if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
+  return date.toLocaleTimeString('en-SG', { hour:'numeric', minute:'2-digit', hour12:true });
+}
+
+function setStatus(state, detail) {
+  const dot  = document.getElementById('statusDot');
+  const text = document.getElementById('statusText');
+  const btn  = document.getElementById('refreshBtn');
+  dot.className = 'status-dot ' + state;
+  if (state === 'loading') {
+    text.textContent = 'Refreshing…';
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spin">↻</span> Refresh';
+  } else if (state === 'live') {
+    text.textContent = 'Live · ' + fmtRelative(lastFetchTime);
+    btn.disabled = false;
+    btn.innerHTML = '↻ Refresh';
+  } else if (state === 'error') {
+    text.textContent = 'Cached data · ' + (detail || '');
+    btn.disabled = false;
+    btn.innerHTML = '↻ Refresh';
+  } else {
+    text.textContent = detail || '';
+    btn.disabled = false;
+    btn.innerHTML = '↻ Refresh';
+  }
+}
+
+// Refresh the "X min ago" text every 30s without refetching
+setInterval(() => {
+  if (lastFetchTime && !isFetching) setStatus('live');
+}, 30000);
+
+async function fetchLiveEvents() {
+  if (isFetching) return;
+  isFetching = true;
+  setStatus('loading');
+
+  try {
+    const timeMin = getSGTMidnight(0);
+    const timeMax = getSGTMidnight(45);
+    const res = await fetch(`/api/events?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'API error');
+
+    const events = (data.events || []);
+
+    if (events.length > 0) {
+      const prev = selectedIdx;
+      liveEvents   = events;
+      lastFetchTime = new Date();
+      buildChips(prev);
+      setStatus('live');
+    } else {
+      throw new Error('No events returned');
+    }
+  } catch (err) {
+    console.warn('Live fetch failed:', err);
+    if (!liveEvents) {
+      liveEvents = FALLBACK_EVENTS;
+      buildChips();
+    }
+    setStatus('error', lastFetchTime ? ('last: ' + fmtRelative(lastFetchTime)) : 'using cached');
+  } finally {
+    isFetching = false;
+  }
+}
+
+function manualRefresh() {
+  fetchLiveEvents();
+}
+
+// Auto-refresh every 5 minutes
+setInterval(fetchLiveEvents, REFRESH_MS);
+
+// Refresh on tab becoming visible (if data is stale)
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    const stale = !lastFetchTime || (Date.now() - lastFetchTime.getTime() > REFRESH_MS);
+    if (stale) fetchLiveEvents();
+    else if (lastFetchTime) setStatus('live');  // update relative time
+  }
+});
+
+// ── ROOMS PAGE ────────────────────────────────────────────────────────────
+const AC_ROOMS = ['guest lounge','m6-2','sanc'];
+function isAC(room)     { return AC_ROOMS.some(s => room.toLowerCase().includes(s)); }
+function hasPiano(str)  { return /piano/i.test(str); }
+
+function parseLine(line) {
+  line = line.trim();
+  if (!line) return null;
+  const ci = line.indexOf(':');
+  if (ci > 0) {
+    const room = line.substring(0, ci).trim();
+    const cg   = line.substring(ci + 1).trim();
+    if (room && cg) return { room, cg };
+  }
+  return null;
+}
+
+function fmtDateLong(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-SG', { weekday:'long', day:'numeric', month:'long', year:'numeric' })
+    + ' · ' + d.toLocaleTimeString('en-SG', { hour:'numeric', minute:'2-digit', hour12:true });
+}
+function fmtShort(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-SG', { weekday:'short', day:'numeric', month:'short' });
+}
+function fmtDateNoTime(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-SG', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+}
+function isToday(iso) {
+  const d = new Date(iso), t = new Date();
+  return d.getFullYear()===t.getFullYear() && d.getMonth()===t.getMonth() && d.getDate()===t.getDate();
+}
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function fmtDateCopy(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-SG', { weekday:'short', day:'numeric', month:'short', year:'numeric' })
+    + ', ' + d.toLocaleTimeString('en-SG', { hour:'numeric', minute:'2-digit', hour12:true });
+}
+function fmtTodayHeader() {
+  const d = new Date();
+  const datePart = d.toLocaleDateString('en-SG', { day:'numeric', month:'long' });
+  let h = d.getHours();
+  const m = d.getMinutes().toString().padStart(2, '0');
+  const ampm = h >= 12 ? 'pm' : 'am';
+  h = h % 12; if (h === 0) h = 12;
+  return `${datePart} ${h}:${m}${ampm}`;
+}
+
+// ── COPY TO CLIPBOARD (textarea fallback works reliably everywhere) ────────
+function copyToClipboard(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.left = '-9999px';
+  document.body.appendChild(ta);
+  ta.select();
+  ta.setSelectionRange(0, 99999);
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+  document.body.removeChild(ta);
+  return ok;
+}
+function flashCopied(btn, label) {
+  if (!btn) return;
+  const orig = btn.textContent;
+  btn.textContent = '✅ Copied!';
+  btn.classList.add('copied');
+  setTimeout(() => { btn.textContent = label || orig; btn.classList.remove('copied'); }, 1800);
+}
+function copyCellText(i, btn) {
+  const text = CELL_OVERVIEW_TEXTS[i];
+  if (!text) return;
+  copyToClipboard(text);
+  flashCopied(btn, '📋 Copy');
+}
+function copyAllCells(btn) {
+  if (!CELL_OVERVIEW_TEXTS.length) return;
+  copyToClipboard(CELL_OVERVIEW_TEXTS.join('\n\n'));
+  flashCopied(btn, '📋 Copy All');
+}
+
+function buildChips(keepIdx) {
+  const events = liveEvents || FALLBACK_EVENTS;
+  const row    = document.getElementById('eventChips');
+  row.innerHTML = '';
+  const now = new Date();
+  let defaultIdx = 0;
+  events.forEach((ev, i) => {
+    const d = new Date(ev.date);
+    if (d < now && !isToday(ev.date) && defaultIdx === i) defaultIdx = i + 1;
+    const btn = document.createElement('button');
+    btn.className = 'chip' + (isToday(ev.date) ? ' today' : '');
+    btn.textContent = fmtShort(ev.date);
+    btn.onclick = () => showEvent(i);
+    row.appendChild(btn);
+  });
+  if (defaultIdx >= events.length) defaultIdx = 0;
+  // If keeping previous index (re-render after refresh), clamp it
+  const idx = (keepIdx !== undefined && keepIdx < events.length) ? keepIdx : defaultIdx;
+  showEvent(idx);
+  // Keep the per-cell overview and WA Messages pages fresh whenever events change
+  renderCellOverview();
+  buildWAChips(idx);
+}
+
+function showEvent(idx) {
+  const events = liveEvents || FALLBACK_EVENTS;
+  selectedIdx  = idx;
+  document.querySelectorAll('#eventChips .chip').forEach((c, i) => c.classList.toggle('active', i === idx));
+  const ev      = events[idx];
+  const content = document.getElementById('roomsContent');
+  const today   = isToday(ev.date);
+
+  let html = `<div class="event-heading">
+    ${esc(fmtDateLong(ev.date))}
+    ${today ? '<span class="day-badge is-today">Today</span>' : ''}
+  </div>`;
+
+  if (!ev.description) {
+    content.innerHTML = html + '<div class="no-rooms">No room bookings recorded yet.</div>';
+    return;
+  }
+
+  const rows = ev.description.split('\n').map(parseLine).filter(Boolean);
+  if (!rows.length) {
+    content.innerHTML = html + '<div class="no-rooms">No room bookings recorded yet.</div>';
+    return;
+  }
+
+  html += `<div class="room-card"><table class="room-table">
+    <thead><tr>
+      <th style="width:36%">Room</th>
+      <th>Cell Group</th>
+      <th style="width:130px">Type</th>
+    </tr></thead><tbody>`;
+
+  rows.forEach(({ room, cg }) => {
+    const ac    = isAC(room);
+    const piano = hasPiano(room) || hasPiano(cg);
+    const cleanRoom = room
+      .replace(/\s*\+\s*(piano|cajon|first aid kit)(\s*\+\s*(piano|cajon|first aid kit))*/gi, '')
+      .replace(/,\s*$/, '').trim();
+    const pianoTag  = piano ? `<span class="badge badge-piano">🎹 Piano</span>` : '';
+    const typeBadge = ac
+      ? `<span class="badge badge-ac">❄️ AC Remote</span>`
+      : `<span class="badge badge-std">Standard</span>`;
+    html += `<tr>
+      <td><span class="room-name">${esc(cleanRoom)}</span></td>
+      <td>${esc(cg)}${pianoTag}</td>
+      <td>${typeBadge}</td>
+    </tr>`;
+  });
+
+  html += '</tbody></table></div>';
+  content.innerHTML = html;
+}
+
+// ── CELL LIST PAGE (cell-first grouping) ────────────────────────────────────
+const CELL_ORDER = [
+  "The Dwelling","Oasis","Selah","Restored","Restful Presence","Seekers of Rest","Sprouts",
+  "Lion & Lamb","Happinest","Happy Space","HEAppy Home","Happy Corner","Pocketful of Joy",
+  "Nest of Joy (N'Joy)","Everlasting Covenant (E'Cove)","WOW!","VVAVESSTORE","the VVAVES co.op",
+  "PayVVave","Rooted & Grounded","SPRING","The Branch","The Oak","Afresh","Light up",
+  "Peace and Joy","Safe Haven","Duracell","LiveWire"
+];
+
+function normCell(s) {
+  return String(s).toLowerCase().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ').trim();
+}
+
+const CELL_ORDER_NORM = CELL_ORDER.map(normCell);
+
+function levenshtein(a, b) {
+  const m = a.length, n = b.length;
+  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] = a[i - 1] === b[j - 1]
+        ? dp[i - 1][j - 1]
+        : 1 + Math.min(dp[i - 1][j - 1], dp[i - 1][j], dp[i][j - 1]);
+    }
+  }
+  return dp[m][n];
+}
+
+function cellOrderIndex(cgRaw) {
+  const q = normCell(cgRaw);
+  if (!q) return CELL_ORDER.length;
+
+  let idx = CELL_ORDER_NORM.indexOf(q);
+  if (idx !== -1) return idx;
+
+  let best = -1, bestLen = -1;
+  CELL_ORDER_NORM.forEach((c, i) => {
+    if (q.includes(c) || c.includes(q)) {
+      const len = Math.min(c.length, q.length);
+      if (len > bestLen) { bestLen = len; best = i; }
+    }
+  });
+  if (best !== -1) return best;
+
+  let bestDist = Infinity, bestIdx = -1;
+  CELL_ORDER_NORM.forEach((c, i) => {
+    const d = levenshtein(q, c);
+    const threshold = Math.max(2, Math.floor(Math.min(q.length, c.length) * 0.3));
+    if (d <= threshold && d < bestDist) { bestDist = d; bestIdx = i; }
+  });
+  if (bestIdx !== -1) return bestIdx;
+
+  return CELL_ORDER.length;
+}
+
+function renderCellOverview() {
+  const events = liveEvents || FALLBACK_EVENTS;
+  const searchEl = document.getElementById('cellSearch');
+  const search = searchEl ? searchEl.value.toLowerCase().trim() : '';
+
+  const known     = new Map();
+  const unmatched = new Map();
+
+  events.forEach(ev => {
+    if (!ev.description) return;
+    const rows = ev.description.split('\n').map(parseLine).filter(Boolean);
+    rows.forEach(({ room, cg }) => {
+      const ac    = isAC(room);
+      const piano = hasPiano(room) || hasPiano(cg);
+      const cleanRoom = room
+        .replace(/\s*\+\s*(piano|cajon|first aid kit)(\s*\+\s*(piano|cajon|first aid kit))*/gi, '')
+        .replace(/,\s*$/, '').trim();
+      const booking = { date: ev.date, room: cleanRoom, ac, piano };
+
+      const idx = cellOrderIndex(cg);
+      if (idx < CELL_ORDER.length) {
+        if (!known.has(idx)) known.set(idx, { name: CELL_ORDER[idx], bookings: [] });
+        known.get(idx).bookings.push(booking);
+      } else {
+        const key = cg.trim().toLowerCase();
+        if (!unmatched.has(key)) unmatched.set(key, { name: cg.trim(), bookings: [] });
+        unmatched.get(key).bookings.push(booking);
+      }
+    });
+  });
+
+  let cells = CELL_ORDER.map((name, i) => known.get(i) || { name, bookings: [] });
+  const extras = [...unmatched.values()].sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+  cells = cells.concat(extras);
+  cells.forEach(c => c.bookings.sort((a, b) => new Date(a.date) - new Date(b.date)));
+
+  if (search) cells = cells.filter(c => c.name.toLowerCase().includes(search));
+
+  const content = document.getElementById('cellListContent');
+  if (!cells.length) {
+    CELL_OVERVIEW_TEXTS = [];
+    content.innerHTML = '<div class="no-rooms">No cells match this search.</div>';
+    return;
+  }
+
+  const todayHeader = fmtTodayHeader();
+  CELL_OVERVIEW_TEXTS = cells.map(c => {
+    const lines = c.bookings.length
+      ? c.bookings.map(b => `${fmtDateCopy(b.date)} — ${b.room}${b.ac ? ' (AC)' : ''}${b.piano ? ' (Piano)' : ''}`)
+      : ['No upcoming bookings'];
+    return `*Latest booking as ${todayHeader}: ${c.name}*\n${lines.join('\n')}`;
+  });
+
+  content.innerHTML = cells.map((c, i) => {
+    const rowsHtml = c.bookings.length
+      ? c.bookings.map(b => {
+          const pianoTag  = b.piano ? `<span class="badge badge-piano">🎹 Piano</span>` : '';
+          const typeBadge = b.ac
+            ? `<span class="badge badge-ac">❄️ AC Remote</span>`
+            : `<span class="badge badge-std">Standard</span>`;
+          const todayTag = isToday(b.date) ? '<span class="day-badge is-today" style="margin-left:6px">Today</span>' : '';
+          return `<tr>
+            <td style="width:42%">${esc(fmtDateLong(b.date))}${todayTag}</td>
+            <td>${esc(b.room)}${pianoTag}</td>
+            <td style="width:130px">${typeBadge}</td>
+          </tr>`;
+        }).join('')
+      : `<tr><td colspan="3" style="text-align:center;color:#bbb;padding:14px">No upcoming bookings</td></tr>`;
+
+    return `<div class="room-card" style="margin-bottom:12px">
+      <div class="cell-card-head">
+        <span class="cell-card-title">${esc(c.name)}</span>
+        <button class="mini-copy-btn" onclick="copyCellText(${i}, this)">📋 Copy</button>
+      </div>
+      <table class="room-table"><tbody>${rowsHtml}</tbody></table>
+    </div>`;
+  }).join('');
+}
+
+// ── WA MESSAGES PAGE (per-event, ready-to-send templates) ───────────────────
+const WA_SPECIAL = ['guest lounge','m6-2'];
+function isWASpecial(room) { return WA_SPECIAL.some(s => room.toLowerCase().includes(s)); }
+const AV_LINK = "https://tiny.cc/ya26cgroom";
+
+function buildWAT1(date, cg, loc, hasPianoNum) {
+  const piano = hasPianoNum ? `\n${hasPianoNum}.⁠ ⁠*Piano collection/return*🎹: office front desk` : '';
+  const cgSign = hasPianoNum ? (hasPianoNum + 1) : 3;
+  return `*Date:* ${date}\n\n*Cell group:* ${cg}\n\n*Location:* ${loc}\n\n*Note:*\n1.⁠ ⁠*Key collection/return*🔑: guard post (level 4).\n•⁠  ⁠Can collect anytime from 5pm & onwards\n2.⁠ ⁠*Sound system & projector setup guide*🎥: ${AV_LINK}${piano}\n${cgSign}.⁠ ⁠*CG Signange return*🪧: guard post (level 4)\n•⁠  ⁠Pls return together with keys ✨`;
+}
+function buildWAT2(date, cg, loc, hasPianoNum) {
+  const piano = hasPianoNum ? `\n${hasPianoNum}.⁠ ⁠*Piano collection/return*🎹: office front desk` : '';
+  const cgSign = hasPianoNum ? (hasPianoNum + 1) : 4;
+  return `*Date:* ${date}\n\n*Cell group:* ${cg}\n\n*Location:* ${loc}\n\n*Note:*\n1.⁠ ⁠*Key collection/return*🔑: guard post (level 4).\n•⁠  ⁠Can collect anytime from 5pm & onwards\n2.⁠ ⁠*Sound system & projector setup guide*🎥: ${AV_LINK}\n3.⁠ ⁠*Aircon Remote collection/return* ❄️: guard post (level 4)\n•⁠  ⁠Pls check all aircons are switched off ☺️${piano}\n${cgSign}.⁠ ⁠*CG Signange return*🪧: guard post (level 4)\n•⁠  ⁠Pls return together with keys ✨`;
+}
+
+function copyWAMsg(btn, id) {
+  const ta = document.getElementById(id);
+  ta.select(); ta.setSelectionRange(0, 99999);
+  try {
+    document.execCommand('copy');
+    btn.textContent = '✅ Copied!'; btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = '📋 Copy'; btn.classList.remove('copied'); }, 2000);
+  } catch (e) { alert('Text is selected — press Cmd+C to copy.'); }
+}
+
+function buildWAChips(keepIdx) {
+  const events = liveEvents || FALLBACK_EVENTS;
+  const row    = document.getElementById('eventChipsWA');
+  row.innerHTML = '';
+  const now = new Date();
+  let defaultIdx = 0;
+  events.forEach((ev, i) => {
+    const d = new Date(ev.date);
+    if (d < now && !isToday(ev.date) && defaultIdx === i) defaultIdx = i + 1;
+    const btn = document.createElement('button');
+    btn.className = 'chip' + (isToday(ev.date) ? ' today' : '');
+    btn.textContent = fmtShort(ev.date);
+    btn.onclick = () => showWAEvent(i);
+    row.appendChild(btn);
+  });
+  if (defaultIdx >= events.length) defaultIdx = 0;
+  const idx = (keepIdx !== undefined && keepIdx < events.length) ? keepIdx : defaultIdx;
+  showWAEvent(idx);
+}
+
+function showWAEvent(idx) {
+  const events = liveEvents || FALLBACK_EVENTS;
+  selectedIdxWA = idx;
+  document.querySelectorAll('#eventChipsWA .chip').forEach((c, i) => c.classList.toggle('active', i === idx));
+  const ev      = events[idx];
+  const date    = fmtDateNoTime(ev.date);
+  const content = document.getElementById('wagenContent');
+
+  if (!ev.description) {
+    content.innerHTML = '<div class="no-rooms">No room bookings in this event\'s description yet.</div>';
+    return;
+  }
+
+  const lines = ev.description.split('\n');
+  let msgIdx = 0;
+  let any = false;
+  let html = '<div class="wa-messages">';
+
+  lines.forEach(line => {
+    const parsed = parseLine(line);
+    if (!parsed) return;
+    any = true;
+    const { room, cg } = parsed;
+    const special = isWASpecial(room);
+    const hasPianoNum = (hasPiano(room) || hasPiano(cg)) ? (special ? 4 : 3) : null;
+    const cleanRoom = room
+      .replace(/\s*\+\s*(piano|cajon|first aid kit)(\s*\+\s*(piano|cajon|first aid kit))*/gi, '')
+      .replace(/,\s*$/, '').trim();
+    const cleanCg = cg.trim();
+    const msg = special ? buildWAT2(date, cleanCg, cleanRoom, hasPianoNum) : buildWAT1(date, cleanCg, cleanRoom, hasPianoNum);
+    const id = `wamsg-${idx}-${msgIdx++}`;
+    html += `
+      <div class="wa-msg-block">
+        <div class="wa-msg-header">
+          <span class="wa-msg-label">📍 ${esc(cleanRoom)} · ${esc(cleanCg)}${hasPianoNum ? ' 🎹' : ''}</span>
+          <span class="wa-msg-badge ${special ? 'wa-badge-sp' : 'wa-badge-std'}">${special ? 'Template 2 (AC)' : 'Template 1'}</span>
+        </div>
+        <textarea class="wa-msg-body" id="${id}" readonly onclick="this.select()">${esc(msg)}</textarea>
+        <button class="wa-copy-btn" onclick="copyWAMsg(this,'${id}')">📋 Copy</button>
+      </div>`;
+  });
+
+  html += '</div>';
+  if (!any) {
+    content.innerHTML = '<div class="no-rooms">No room bookings in this event\'s description yet.</div>';
+    return;
+  }
+  content.innerHTML = html;
+  content.querySelectorAll('.wa-msg-body').forEach(ta => { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; });
+}
+
+// ── NEWCOMERS PAGE ────────────────────────────────────────────────────────
+const NC_COL_DEFS = [
+  { label: 'Full Name',         keys: ['full name','name'] },
+  { label: 'Gender',            keys: ['gender'] },
+  { label: 'Phone',             keys: ['phone','contact'] },
+  { label: 'Attending Service', keys: ['attending','service'] },
+  { label: 'Cell / Assignee',   keys: ['cell','assign'] },
+  { label: 'Last Contacted',    keys: ['last contact','contacted','last'] },
+];
+
+let ncRows     = [];
+let ncColMap   = [];
+let ncSortType = 'az';
+let ncFilter   = 'all';
+
+function dragOver(e) { e.preventDefault(); document.getElementById('uploadZone').classList.add('drag'); }
+function dragLeave()  { document.getElementById('uploadZone').classList.remove('drag'); }
+function dropFile(e)  { e.preventDefault(); dragLeave(); if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); }
+
+function handleFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const { headers, rows } = parseCSV(e.target.result);
+    if (!rows.length) { alert('No data found in this CSV.'); return; }
+    loadNewcomers(headers, rows);
+  };
+  reader.readAsText(file);
+}
+
+function parseCSV(text) {
+  const lines = text.trim().split(/\r?\n/);
+  if (lines.length < 2) return { headers: [], rows: [] };
+  const headers = parseCSVRow(lines[0]);
+  const rows = lines.slice(1).filter(l => l.trim()).map(l => {
+    const vals = parseCSVRow(l);
+    const obj  = {};
+    headers.forEach((h, i) => obj[h] = (vals[i] || '').trim());
+    return obj;
+  });
+  return { headers, rows };
+}
+
+function parseCSVRow(line) {
+  const out = []; let cur = ''; let q = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '"') { if (q && line[i+1]==='"') { cur+='"'; i++; } else q=!q; }
+    else if (c === ',' && !q) { out.push(cur.trim()); cur = ''; }
+    else cur += c;
+  }
+  out.push(cur.trim());
+  return out;
+}
+
+function findHeader(headers, keys) {
+  for (const k of keys) {
+    const h = headers.find(h => h.toLowerCase().includes(k.toLowerCase()));
+    if (h) return h;
+  }
+  return null;
+}
+
+function parseContactDate(str) {
+  if (!str || str === '–' || !str.trim()) return null;
+  str = str.trim();
+  let d = new Date(str);
+  if (!isNaN(d.getTime()) && d.getFullYear() > 2000) return d;
+  let m = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (m) { d = new Date(+m[3], +m[2]-1, +m[1]); if (!isNaN(d.getTime())) return d; }
+  m = str.match(/^(\d{1,2})\s+([A-Za-z]{3,})\s+(\d{4})$/);
+  if (m) { d = new Date(`${m[2]} ${m[1]}, ${m[3]}`); if (!isNaN(d.getTime())) return d; }
+  return null;
+}
+
+function getDaysAgo(str) {
+  const d = parseContactDate(str);
+  return d ? Math.floor((Date.now() - d.getTime()) / 86400000) : null;
+}
+
+function setSort(type) {
+  ncSortType = type;
+  document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById('sort-' + type);
+  if (btn) btn.classList.add('active');
+  renderNC();
+}
+
+function setFilter(f) {
+  ncFilter = f;
+  document.querySelectorAll('.fchip').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById('fchip-' + f);
+  if (btn) btn.classList.add('active');
+  renderNC();
+}
+
+function loadNewcomers(headers, rows) {
+  ncRows   = rows;
+  ncColMap = NC_COL_DEFS
+    .map(def => ({ label: def.label, rawKey: findHeader(headers, def.keys) }))
+    .filter(c => c.rawKey);
+
+  const thead = document.getElementById('ncHead');
+  thead.innerHTML = '';
+  ncColMap.forEach(col => {
+    const th = document.createElement('th');
+    th.textContent = col.label;
+    thead.appendChild(th);
+  });
+
+  document.getElementById('uploadZone').style.display = 'none';
+  document.getElementById('newcomerSection').style.display = '';
+
+  const ts = new Date().toLocaleString('en-SG', { day:'numeric', month:'short', hour:'numeric', minute:'2-digit', hour12:true });
+  document.getElementById('ncStatusSep').style.display  = '';
+  document.getElementById('ncStatusText').style.display = '';
+  document.getElementById('ncStatusText').textContent   = `Newcomers: ${rows.length} · loaded ${ts}`;
+
+  setSort('az');
+  setFilter('all');
+}
+
+function renderNC() {
+  const search     = (document.getElementById('ncSearch').value || '').toLowerCase();
+  const contactCol = ncColMap.find(c => c.label === 'Last Contacted');
+  const nameCol    = ncColMap.find(c => c.label === 'Full Name');
+
+  let rows = ncRows.filter(row => {
+    if (ncFilter === 'all') return true;
+    if (!contactCol) return true;
+    const days = getDaysAgo(row[contactCol.rawKey]);
+    if (days === null) return false;
+    if (ncFilter === 'week') return days <= 7;
+    if (ncFilter === '30')   return days <= 30;
+    if (ncFilter === '31')   return days >= 31 && days < 60;
+    if (ncFilter === '60')   return days >= 60;
+    return true;
+  });
+
+  if (search) rows = rows.filter(row =>
+    Object.values(row).some(v => v.toLowerCase().includes(search))
+  );
+
+  rows = [...rows].sort((a, b) => {
+    if (ncSortType === 'az' || ncSortType === 'za') {
+      const key = nameCol ? nameCol.rawKey : (ncColMap[0] ? ncColMap[0].rawKey : null);
+      if (!key) return 0;
+      const av = (a[key]||'').toLowerCase(), bv = (b[key]||'').toLowerCase();
+      return ncSortType === 'az' ? av.localeCompare(bv) : bv.localeCompare(av);
+    }
+    if (ncSortType === 'recent' && contactCol) {
+      const da = parseContactDate(a[contactCol.rawKey]);
+      const db = parseContactDate(b[contactCol.rawKey]);
+      if (!da && !db) return 0;
+      if (!da) return 1;
+      if (!db) return -1;
+      return db.getTime() - da.getTime();
+    }
+    return 0;
+  });
+
+  document.getElementById('ncCount').textContent =
+    rows.length === ncRows.length
+      ? `${rows.length} newcomer${rows.length !== 1 ? 's' : ''}`
+      : `${rows.length} of ${ncRows.length}`;
+
+  const tbody = document.getElementById('ncBody');
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="${ncColMap.length}" class="empty-nc">No newcomers match this filter.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map(row =>
+    '<tr>' + ncColMap.map(col => {
+      const val = row[col.rawKey] || '–';
+      let cls = '';
+      if (col.label === 'Gender') {
+        cls = val.toLowerCase().startsWith('m') ? 'gender-m' : val.toLowerCase().startsWith('f') ? 'gender-f' : '';
+      }
+      if (col.label === 'Last Contacted') {
+        const days = getDaysAgo(val);
+        if (days !== null) cls = days >= 60 ? 'days-danger' : days >= 31 ? 'days-warn' : '';
+      }
+      return `<td${cls ? ` class="${cls}"` : ''}>${esc(val)}</td>`;
+    }).join('') + '</tr>'
+  ).join('');
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────
+buildChips();
+setStatus('loading');
+fetchLiveEvents();
+</script>
+</body>
+</html>
