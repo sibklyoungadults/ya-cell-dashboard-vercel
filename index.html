@@ -48,11 +48,15 @@ body {
 .nav {
   display: flex; background: #fff;
   border-bottom: 1px solid #e5e7eb; padding: 0 18px;
+  overflow-x: auto; -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin; scrollbar-color: #d1d5db transparent;
 }
+.nav::-webkit-scrollbar { height: 3px; }
+.nav::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
 .nav-tab {
   padding: 11px 16px; font-size: 13px; font-weight: 500; color: #6b7280;
   background: none; border: none; border-bottom: 2px solid transparent;
-  cursor: pointer; transition: all 0.15s; white-space: nowrap;
+  cursor: pointer; transition: all 0.15s; white-space: nowrap; flex-shrink: 0;
 }
 .nav-tab:hover { color: #128C7E; }
 .nav-tab.active { color: #128C7E; border-bottom-color: #128C7E; font-weight: 700; }
@@ -92,7 +96,8 @@ body {
 
 /* ── Room table ── */
 .room-card { background: #fff; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); overflow: hidden; }
-.room-table { width: 100%; border-collapse: collapse; }
+.room-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.room-table { width: 100%; min-width: 460px; border-collapse: collapse; }
 .room-table th {
   text-align: left; padding: 9px 14px;
   font-size: 10px; font-weight: 700; color: #9ca3af;
@@ -103,6 +108,8 @@ body {
 .room-table tr:last-child td { border-bottom: none; }
 .room-table tr:hover td { background: #fafafa; }
 .room-name { font-weight: 600; color: #111; }
+.col-wide  { width: 34%; }
+.col-fixed { width: 210px; }
 .badge { display: inline-flex; align-items: center; gap: 3px; font-size: 10px; padding: 2px 8px; border-radius: 20px; font-weight: 600; white-space: nowrap; }
 .badge-std   { background: #dcfce7; color: #166534; }
 .badge-ac    { background: #dbeafe; color: #1e40af; }
@@ -198,6 +205,24 @@ body {
 .wa-copy-btn { display: flex; align-items: center; gap: 5px; margin: 0 13px 11px; background: #f0f0f0; border: none; border-radius: 6px; padding: 6px 13px; font-size: 13px; cursor: pointer; color: #333; font-weight: 500; }
 .wa-copy-btn:hover { background: #e0e0e0; }
 .wa-copy-btn.copied { background: #d4edda; color: #1a7431; }
+
+/* ── Mobile ── */
+@media (max-width: 640px) {
+  body { font-size: 13px; }
+  .header { padding: 10px 14px; flex-wrap: wrap; row-gap: 6px; }
+  .header-title { font-size: 15px; }
+  .nav { padding: 0 14px; }
+  .nav-tab { padding: 10px 12px; font-size: 12.5px; }
+  .page { padding: 12px 14px; }
+  .event-heading { font-size: 13px; }
+  .date-summary { font-size: 12px; }
+  .room-table th, .room-table td { padding: 8px 10px; font-size: 12.5px; }
+  .cell-card-title { font-size: 13px; }
+  .table-toolbar { flex-direction: column; align-items: stretch; }
+  .search-box { width: 100%; }
+  .upload-zone { padding: 28px 14px; }
+  .nc-ctrl-label { min-width: auto; }
+}
 </style>
 </head>
 <body>
@@ -529,22 +554,23 @@ function joinList(arr) {
   return arr.slice(0, -1).join(', ') + ', and ' + arr[arr.length - 1];
 }
 
-function buildDateSummary(dateLabel, rowsInfo) {
+function buildDateSummary(rowsInfo) {
   const total = rowsInfo.length;
   if (total === 0) return 'No room bookings recorded for this date yet.';
-  const acRooms     = rowsInfo.filter(r => r.ac).map(r => r.cleanRoom);
-  const pianoRooms  = rowsInfo.filter(r => r.piano).map(r => r.cleanRoom);
-  const guitarRooms = rowsInfo.filter(r => r.guitar).map(r => r.cleanRoom);
 
-  let out = `${total} room booking${total !== 1 ? 's' : ''} on ${dateLabel}.`;
+  const acRooms   = rowsInfo.filter(r => r.ac).map(r => r.cleanRoom);
+  const hasPiano  = rowsInfo.some(r => r.piano);
+  const hasGuitar = rowsInfo.some(r => r.guitar);
+
+  let out = `${total} room booking${total !== 1 ? 's' : ''}.`;
   if (acRooms.length) {
-    out += ` ${joinList(acRooms)} ${acRooms.length === 1 ? 'needs' : 'need'} the AC remote — that's the room type.`;
+    out += ` ${joinList(acRooms)} ${acRooms.length === 1 ? 'needs' : 'need'} the AC remote.`;
   }
-  if (pianoRooms.length) {
-    out += ` ${joinList(pianoRooms)}${pianoRooms.length === 1 ? '’s Cell Leader' : '’ Cell Leaders'} requested a piano.`;
-  }
-  if (guitarRooms.length) {
-    out += ` ${joinList(guitarRooms)}${guitarRooms.length === 1 ? '’s Cell Leader' : '’ Cell Leaders'} requested a guitar.`;
+  const instruments = [];
+  if (hasPiano)  instruments.push('Piano');
+  if (hasGuitar) instruments.push('Guitar');
+  if (instruments.length) {
+    out += ` ${joinList(instruments)} requested.`;
   }
   return out;
 }
@@ -572,18 +598,18 @@ function showEvent(idx) {
     ${esc(fmtDateLong(ev.date))}
     ${today ? '<span class="day-badge is-today">Today</span>' : ''}
   </div>
-  <div class="date-summary">${esc(buildDateSummary(fmtShort(ev.date), rowsInfo))}</div>`;
+  <div class="date-summary">${esc(buildDateSummary(rowsInfo))}</div>`;
 
   if (!rowsInfo.length) {
     content.innerHTML = html + '<div class="no-rooms">No room bookings recorded yet.</div>';
     return;
   }
 
-  html += `<div class="room-card"><table class="room-table">
+  html += `<div class="room-card"><div class="room-table-scroll"><table class="room-table">
     <thead><tr>
-      <th style="width:34%">Room</th>
+      <th class="col-wide">Room</th>
       <th>Cell Group</th>
-      <th style="width:210px">Request type</th>
+      <th class="col-fixed">Request type</th>
     </tr></thead><tbody>`;
 
   rowsInfo.forEach(({ cg, ac, piano, guitar, cleanRoom }) => {
@@ -599,7 +625,7 @@ function showEvent(idx) {
     </tr>`;
   });
 
-  html += '</tbody></table></div>';
+  html += '</tbody></table></div></div>';
   content.innerHTML = html;
 }
 
@@ -724,9 +750,9 @@ function renderCellOverview() {
             : `<span class="badge badge-std">Standard</span>`;
           const todayTag = isToday(b.date) ? '<span class="day-badge is-today" style="margin-left:6px">Today</span>' : '';
           return `<tr>
-            <td style="width:42%">${esc(fmtDateLong(b.date))}${todayTag}</td>
+            <td>${esc(fmtDateLong(b.date))}${todayTag}</td>
             <td>${esc(b.room)}</td>
-            <td style="width:210px">${typeBadge}${pianoTag}${guitarTag}</td>
+            <td>${typeBadge}${pianoTag}${guitarTag}</td>
           </tr>`;
         }).join('')
       : `<tr><td colspan="3" style="text-align:center;color:#bbb;padding:14px">No upcoming bookings</td></tr>`;
@@ -736,14 +762,14 @@ function renderCellOverview() {
         <span class="cell-card-title">${esc(c.name)}</span>
         <button class="mini-copy-btn" onclick="copyCellText(${i}, this)">📋 Copy</button>
       </div>
-      <table class="room-table">
+      <div class="room-table-scroll"><table class="room-table">
         <thead><tr>
-          <th style="width:42%">Date</th>
+          <th class="col-wide">Date</th>
           <th>Room</th>
-          <th style="width:210px">Request type</th>
+          <th class="col-fixed">Request type</th>
         </tr></thead>
         <tbody>${rowsHtml}</tbody>
-      </table>
+      </table></div>
     </div>`;
   }).join('');
 }
