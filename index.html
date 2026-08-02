@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>YA Cell Dashboard</title>
+<meta name="description" content="Live YA Cell room bookings, WhatsApp reminders, and newcomer tracking.">
+<meta name="robots" content="noindex, nofollow">
 <style>
 :root { color-scheme: light; }
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -86,6 +88,7 @@ body {
   border-radius: 20px; background: #dcfce7; color: #166534;
 }
 .day-badge.is-today { background: #fef3c7; color: #92400e; }
+.date-summary { font-size: 12.5px; color: #4b5563; line-height: 1.5; margin: -6px 0 14px 0; }
 
 /* ── Room table ── */
 .room-card { background: #fff; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); overflow: hidden; }
@@ -104,6 +107,7 @@ body {
 .badge-std   { background: #dcfce7; color: #166534; }
 .badge-ac    { background: #dbeafe; color: #1e40af; }
 .badge-piano { background: #fef3c7; color: #92400e; margin-left: 4px; }
+.badge-guitar { background: #ede9fe; color: #5b21b6; margin-left: 4px; }
 .no-rooms { text-align: center; color: #bbb; font-size: 13px; padding: 36px 20px; background: #fff; border-radius: 12px; }
 
 /* ── Skeleton loader ── */
@@ -216,13 +220,13 @@ body {
 
 <!-- Navigation -->
 <div class="nav">
-  <button class="nav-tab active" id="tab-rooms"     onclick="switchPage('rooms')">📋 Cell Rooms</button>
-  <button class="nav-tab"        id="tab-celllist"  onclick="switchPage('celllist')">🗂️ Cell List</button>
-  <button class="nav-tab"        id="tab-wagen"     onclick="switchPage('wagen')">💬 WA Messages</button>
+  <button class="nav-tab active" id="tab-rooms"     onclick="switchPage('rooms')">📋 Bookings by Date</button>
+  <button class="nav-tab"        id="tab-celllist"  onclick="switchPage('celllist')">🗂️ Bookings by Cell Group</button>
+  <button class="nav-tab"        id="tab-wagen"     onclick="switchPage('wagen')">💬 Send Reminder</button>
   <button class="nav-tab"        id="tab-newcomers" onclick="switchPage('newcomers')">👥 Newcomers</button>
 </div>
 
-<!-- Page: Cell Rooms -->
+<!-- Page: Bookings by Date -->
 <div id="page-rooms" class="page">
   <div class="chips-row" id="eventChips"></div>
   <div id="roomsContent"></div>
@@ -412,6 +416,7 @@ document.addEventListener('visibilitychange', () => {
 const AC_ROOMS = ['guest lounge','m6-2','sanc'];
 function isAC(room)     { return AC_ROOMS.some(s => room.toLowerCase().includes(s)); }
 function hasPiano(str)  { return /piano/i.test(str); }
+function hasGuitar(str) { return /guitar/i.test(str); }
 
 function parseLine(line) {
   line = line.trim();
@@ -517,6 +522,33 @@ function buildChips(keepIdx) {
   buildWAChips(idx);
 }
 
+function joinList(arr) {
+  if (arr.length === 0) return '';
+  if (arr.length === 1) return arr[0];
+  if (arr.length === 2) return arr[0] + ' and ' + arr[1];
+  return arr.slice(0, -1).join(', ') + ', and ' + arr[arr.length - 1];
+}
+
+function buildDateSummary(dateLabel, rowsInfo) {
+  const total = rowsInfo.length;
+  if (total === 0) return 'No room bookings recorded for this date yet.';
+  const acRooms     = rowsInfo.filter(r => r.ac).map(r => r.cleanRoom);
+  const pianoRooms  = rowsInfo.filter(r => r.piano).map(r => r.cleanRoom);
+  const guitarRooms = rowsInfo.filter(r => r.guitar).map(r => r.cleanRoom);
+
+  let out = `${total} room booking${total !== 1 ? 's' : ''} on ${dateLabel}.`;
+  if (acRooms.length) {
+    out += ` ${joinList(acRooms)} ${acRooms.length === 1 ? 'needs' : 'need'} the AC remote — that's the room type.`;
+  }
+  if (pianoRooms.length) {
+    out += ` ${joinList(pianoRooms)}${pianoRooms.length === 1 ? '’s Cell Leader' : '’ Cell Leaders'} requested a piano.`;
+  }
+  if (guitarRooms.length) {
+    out += ` ${joinList(guitarRooms)}${guitarRooms.length === 1 ? '’s Cell Leader' : '’ Cell Leaders'} requested a guitar.`;
+  }
+  return out;
+}
+
 function showEvent(idx) {
   const events = liveEvents || FALLBACK_EVENTS;
   selectedIdx  = idx;
@@ -525,43 +557,45 @@ function showEvent(idx) {
   const content = document.getElementById('roomsContent');
   const today   = isToday(ev.date);
 
+  const rawRows = ev.description ? ev.description.split('\n').map(parseLine).filter(Boolean) : [];
+  const rowsInfo = rawRows.map(({ room, cg }) => {
+    const ac     = isAC(room);
+    const piano  = hasPiano(room) || hasPiano(cg);
+    const guitar = hasGuitar(room) || hasGuitar(cg);
+    const cleanRoom = room
+      .replace(/\s*\+\s*(piano|guitar|cajon|first aid kit)(\s*\+\s*(piano|guitar|cajon|first aid kit))*/gi, '')
+      .replace(/,\s*$/, '').trim();
+    return { cg, ac, piano, guitar, cleanRoom };
+  });
+
   let html = `<div class="event-heading">
     ${esc(fmtDateLong(ev.date))}
     ${today ? '<span class="day-badge is-today">Today</span>' : ''}
-  </div>`;
+  </div>
+  <div class="date-summary">${esc(buildDateSummary(fmtShort(ev.date), rowsInfo))}</div>`;
 
-  if (!ev.description) {
-    content.innerHTML = html + '<div class="no-rooms">No room bookings recorded yet.</div>';
-    return;
-  }
-
-  const rows = ev.description.split('\n').map(parseLine).filter(Boolean);
-  if (!rows.length) {
+  if (!rowsInfo.length) {
     content.innerHTML = html + '<div class="no-rooms">No room bookings recorded yet.</div>';
     return;
   }
 
   html += `<div class="room-card"><table class="room-table">
     <thead><tr>
-      <th style="width:36%">Room</th>
+      <th style="width:34%">Room</th>
       <th>Cell Group</th>
-      <th style="width:130px">Type</th>
+      <th style="width:210px">Request type</th>
     </tr></thead><tbody>`;
 
-  rows.forEach(({ room, cg }) => {
-    const ac    = isAC(room);
-    const piano = hasPiano(room) || hasPiano(cg);
-    const cleanRoom = room
-      .replace(/\s*\+\s*(piano|cajon|first aid kit)(\s*\+\s*(piano|cajon|first aid kit))*/gi, '')
-      .replace(/,\s*$/, '').trim();
+  rowsInfo.forEach(({ cg, ac, piano, guitar, cleanRoom }) => {
     const pianoTag  = piano ? `<span class="badge badge-piano">🎹 Piano</span>` : '';
+    const guitarTag = guitar ? `<span class="badge badge-guitar">🎸 Guitar</span>` : '';
     const typeBadge = ac
       ? `<span class="badge badge-ac">❄️ AC Remote</span>`
       : `<span class="badge badge-std">Standard</span>`;
     html += `<tr>
       <td><span class="room-name">${esc(cleanRoom)}</span></td>
-      <td>${esc(cg)}${pianoTag}</td>
-      <td>${typeBadge}</td>
+      <td>${esc(cg)}</td>
+      <td>${typeBadge}${pianoTag}${guitarTag}</td>
     </tr>`;
   });
 
@@ -638,12 +672,13 @@ function renderCellOverview() {
     if (!ev.description) return;
     const rows = ev.description.split('\n').map(parseLine).filter(Boolean);
     rows.forEach(({ room, cg }) => {
-      const ac    = isAC(room);
-      const piano = hasPiano(room) || hasPiano(cg);
+      const ac     = isAC(room);
+      const piano  = hasPiano(room) || hasPiano(cg);
+      const guitar = hasGuitar(room) || hasGuitar(cg);
       const cleanRoom = room
-        .replace(/\s*\+\s*(piano|cajon|first aid kit)(\s*\+\s*(piano|cajon|first aid kit))*/gi, '')
+        .replace(/\s*\+\s*(piano|guitar|cajon|first aid kit)(\s*\+\s*(piano|guitar|cajon|first aid kit))*/gi, '')
         .replace(/,\s*$/, '').trim();
-      const booking = { date: ev.date, room: cleanRoom, ac, piano };
+      const booking = { date: ev.date, room: cleanRoom, ac, piano, guitar };
 
       const idx = cellOrderIndex(cg);
       if (idx < CELL_ORDER.length) {
@@ -674,7 +709,7 @@ function renderCellOverview() {
   const todayHeader = fmtTodayHeader();
   CELL_OVERVIEW_TEXTS = cells.map(c => {
     const lines = c.bookings.length
-      ? c.bookings.map(b => `${fmtDateCopy(b.date)} — ${b.room}${b.ac ? ' (AC)' : ''}${b.piano ? ' (Piano)' : ''}`)
+      ? c.bookings.map(b => `${fmtDateCopy(b.date)} — ${b.room}${b.ac ? ' (AC)' : ''}${b.piano ? ' (Piano)' : ''}${b.guitar ? ' (Guitar)' : ''}`)
       : ['No upcoming bookings'];
     return `*Latest booking as ${todayHeader}: ${c.name}*\n${lines.join('\n')}`;
   });
@@ -683,14 +718,15 @@ function renderCellOverview() {
     const rowsHtml = c.bookings.length
       ? c.bookings.map(b => {
           const pianoTag  = b.piano ? `<span class="badge badge-piano">🎹 Piano</span>` : '';
+          const guitarTag = b.guitar ? `<span class="badge badge-guitar">🎸 Guitar</span>` : '';
           const typeBadge = b.ac
             ? `<span class="badge badge-ac">❄️ AC Remote</span>`
             : `<span class="badge badge-std">Standard</span>`;
           const todayTag = isToday(b.date) ? '<span class="day-badge is-today" style="margin-left:6px">Today</span>' : '';
           return `<tr>
             <td style="width:42%">${esc(fmtDateLong(b.date))}${todayTag}</td>
-            <td>${esc(b.room)}${pianoTag}</td>
-            <td style="width:130px">${typeBadge}</td>
+            <td>${esc(b.room)}</td>
+            <td style="width:210px">${typeBadge}${pianoTag}${guitarTag}</td>
           </tr>`;
         }).join('')
       : `<tr><td colspan="3" style="text-align:center;color:#bbb;padding:14px">No upcoming bookings</td></tr>`;
@@ -700,7 +736,14 @@ function renderCellOverview() {
         <span class="cell-card-title">${esc(c.name)}</span>
         <button class="mini-copy-btn" onclick="copyCellText(${i}, this)">📋 Copy</button>
       </div>
-      <table class="room-table"><tbody>${rowsHtml}</tbody></table>
+      <table class="room-table">
+        <thead><tr>
+          <th style="width:42%">Date</th>
+          <th>Room</th>
+          <th style="width:210px">Request type</th>
+        </tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
     </div>`;
   }).join('');
 }
@@ -710,15 +753,19 @@ const WA_SPECIAL = ['guest lounge','m6-2'];
 function isWASpecial(room) { return WA_SPECIAL.some(s => room.toLowerCase().includes(s)); }
 const AV_LINK = "https://tiny.cc/ya26cgroom";
 
-function buildWAT1(date, cg, loc, hasPianoNum) {
-  const piano = hasPianoNum ? `\n${hasPianoNum}.⁠ ⁠*Piano collection/return*🎹: office front desk` : '';
-  const cgSign = hasPianoNum ? (hasPianoNum + 1) : 3;
-  return `*Date:* ${date}\n\n*Cell group:* ${cg}\n\n*Location:* ${loc}\n\n*Note:*\n1.⁠ ⁠*Key collection/return*🔑: guard post (level 4).\n•⁠  ⁠Can collect anytime from 5pm & onwards\n2.⁠ ⁠*Sound system & projector setup guide*🎥: ${AV_LINK}${piano}\n${cgSign}.⁠ ⁠*CG Signange return*🪧: guard post (level 4)\n•⁠  ⁠Pls return together with keys ✨`;
+function buildWAT1(date, cg, loc, hasPianoFlag, hasGuitarFlag) {
+  let n = 3;
+  let extra = '';
+  if (hasPianoFlag)  { extra += `\n${n}.⁠ ⁠*Piano collection/return*🎹: office front desk`;  n++; }
+  if (hasGuitarFlag) { extra += `\n${n}.⁠ ⁠*Guitar collection/return*🎸: office front desk`; n++; }
+  return `*Date:* ${date}\n\n*Cell group:* ${cg}\n\n*Location:* ${loc}\n\n*Note:*\n1.⁠ ⁠*Key collection/return*🔑: guard post (level 4).\n•⁠  ⁠Can collect anytime from 5pm & onwards\n2.⁠ ⁠*Sound system & projector setup guide*🎥: ${AV_LINK}${extra}\n${n}.⁠ ⁠*CG Signange return*🪧: guard post (level 4)\n•⁠  ⁠Pls return together with keys ✨`;
 }
-function buildWAT2(date, cg, loc, hasPianoNum) {
-  const piano = hasPianoNum ? `\n${hasPianoNum}.⁠ ⁠*Piano collection/return*🎹: office front desk` : '';
-  const cgSign = hasPianoNum ? (hasPianoNum + 1) : 4;
-  return `*Date:* ${date}\n\n*Cell group:* ${cg}\n\n*Location:* ${loc}\n\n*Note:*\n1.⁠ ⁠*Key collection/return*🔑: guard post (level 4).\n•⁠  ⁠Can collect anytime from 5pm & onwards\n2.⁠ ⁠*Sound system & projector setup guide*🎥: ${AV_LINK}\n3.⁠ ⁠*Aircon Remote collection/return* ❄️: guard post (level 4)\n•⁠  ⁠Pls check all aircons are switched off ☺️${piano}\n${cgSign}.⁠ ⁠*CG Signange return*🪧: guard post (level 4)\n•⁠  ⁠Pls return together with keys ✨`;
+function buildWAT2(date, cg, loc, hasPianoFlag, hasGuitarFlag) {
+  let n = 4;
+  let extra = '';
+  if (hasPianoFlag)  { extra += `\n${n}.⁠ ⁠*Piano collection/return*🎹: office front desk`;  n++; }
+  if (hasGuitarFlag) { extra += `\n${n}.⁠ ⁠*Guitar collection/return*🎸: office front desk`; n++; }
+  return `*Date:* ${date}\n\n*Cell group:* ${cg}\n\n*Location:* ${loc}\n\n*Note:*\n1.⁠ ⁠*Key collection/return*🔑: guard post (level 4).\n•⁠  ⁠Can collect anytime from 5pm & onwards\n2.⁠ ⁠*Sound system & projector setup guide*🎥: ${AV_LINK}\n3.⁠ ⁠*Aircon Remote collection/return* ❄️: guard post (level 4)\n•⁠  ⁠Pls check all aircons are switched off ☺️${extra}\n${n}.⁠ ⁠*CG Signange return*🪧: guard post (level 4)\n•⁠  ⁠Pls return together with keys ✨`;
 }
 
 function copyWAMsg(btn, id) {
@@ -775,17 +822,19 @@ function showWAEvent(idx) {
     any = true;
     const { room, cg } = parsed;
     const special = isWASpecial(room);
-    const hasPianoNum = (hasPiano(room) || hasPiano(cg)) ? (special ? 4 : 3) : null;
+    const hasPianoFlag = hasPiano(room) || hasPiano(cg);
+    const hasGuitarFlag = hasGuitar(room) || hasGuitar(cg);
     const cleanRoom = room
-      .replace(/\s*\+\s*(piano|cajon|first aid kit)(\s*\+\s*(piano|cajon|first aid kit))*/gi, '')
+      .replace(/\s*\+\s*(piano|guitar|cajon|first aid kit)(\s*\+\s*(piano|guitar|cajon|first aid kit))*/gi, '')
       .replace(/,\s*$/, '').trim();
     const cleanCg = cg.trim();
-    const msg = special ? buildWAT2(date, cleanCg, cleanRoom, hasPianoNum) : buildWAT1(date, cleanCg, cleanRoom, hasPianoNum);
+    const msg = special ? buildWAT2(date, cleanCg, cleanRoom, hasPianoFlag, hasGuitarFlag) : buildWAT1(date, cleanCg, cleanRoom, hasPianoFlag, hasGuitarFlag);
     const id = `wamsg-${idx}-${msgIdx++}`;
+    const instrTags = (hasPianoFlag ? ' 🎹' : '') + (hasGuitarFlag ? ' 🎸' : '');
     html += `
       <div class="wa-msg-block">
         <div class="wa-msg-header">
-          <span class="wa-msg-label">📍 ${esc(cleanRoom)} · ${esc(cleanCg)}${hasPianoNum ? ' 🎹' : ''}</span>
+          <span class="wa-msg-label">📍 ${esc(cleanRoom)} · ${esc(cleanCg)}${instrTags}</span>
           <span class="wa-msg-badge ${special ? 'wa-badge-sp' : 'wa-badge-std'}">${special ? 'Template 2 (AC)' : 'Template 1'}</span>
         </div>
         <textarea class="wa-msg-body" id="${id}" readonly onclick="this.select()">${esc(msg)}</textarea>
