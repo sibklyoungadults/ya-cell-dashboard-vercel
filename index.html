@@ -275,7 +275,7 @@ body {
 <!-- Page: Cell List (per-cell overview across all upcoming dates) -->
 <div id="page-celllist" class="page" style="display:none">
   <div class="table-toolbar" style="margin-bottom:12px">
-    <span style="font-size:12px;color:#6b7280">Every cell, with all its upcoming dates &amp; rooms</span>
+    <span style="font-size:12px;color:#6b7280">Every cell, with all its upcoming dates &amp; rooms — through 31 December</span>
     <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap">
       <input class="search-box" type="text" id="cellSearch" placeholder="🔍 Search cell name…" oninput="renderCellOverview()">
       <button class="copy-all-btn" id="copyAllBtn" onclick="copyAllCells(this)">📋 Copy All</button>
@@ -363,6 +363,13 @@ let isFetching     = false;
 let CELL_OVERVIEW_TEXTS = [];  // plain-text copy blocks, one per rendered cell card
 const REFRESH_MS   = 5 * 60 * 1000;  // 5 minutes
 
+// Extended dataset for the "Bookings by Cell Group" tab — covers today
+// through end of December (rather than the 45-day window used elsewhere),
+// so the pastor can see each cell's full remaining-year schedule.
+let liveEventsCL    = null;
+let lastFetchTimeCL = null;
+let isFetchingCL    = false;
+
 // ── PAGE SWITCH ───────────────────────────────────────────────────────────
 function switchPage(page) {
   ['rooms','celllist','wagen','newcomers','edm'].forEach(p => {
@@ -370,6 +377,7 @@ function switchPage(page) {
     document.getElementById('tab-' + p).classList.toggle('active', p === page);
   });
   if (page === 'edm') ensureEdmLoaded();
+  if (page === 'celllist' && !liveEventsCL) fetchLiveEventsCL();
 }
 
 // ── LIVE FETCH ────────────────────────────────────────────────────────────
@@ -380,6 +388,16 @@ function getSGTMidnight(offsetDays) {
   const p = n => n.toString().padStart(2, '0');
   return `${sgtNow.getUTCFullYear()}-${p(sgtNow.getUTCMonth()+1)}-${p(sgtNow.getUTCDate())}T00:00:00+08:00`;
 }
+
+// End of December (23:59:59 SGT) of the current SGT year — used as the
+// upper bound for the extended Cell Group tab fetch.
+function getSGTEndOfDecember() {
+  const sgtNow = new Date(Date.now() + 8 * 3600 * 1000);
+  const year = sgtNow.getUTCFullYear();
+  return `${year}-12-31T23:59:59+08:00`;
+}
+
+function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
 
 function fmtRelative(date) {
   const diff = Math.floor((Date.now() - date.getTime()) / 1000);
@@ -418,6 +436,9 @@ setInterval(() => {
   if (lastFetchTime && !isFetching) setStatus('live');
 }, 30000);
 
+// Retries once (after a short pause) before falling back to cached/fallback
+// data — most "Cached data" states were a single transient MCP hiccup that
+// clears itself a couple seconds later.
 async function fetchLiveEvents() {
   if (isFetching) return;
   if (!window.cowork || !window.cowork.callMcpTool) {
@@ -433,56 +454,136 @@ async function fetchLiveEvents() {
   isFetching = true;
   setStatus('loading');
 
-  try {
-    const result = await window.cowork.callMcpTool(
-      'mcp__c6382993-1e06-469a-b86c-e2a6fdb8653c__list_events',
-      {
-        calendarId: 'sibklyoungadults@gmail.com',
-        fullText:   'YA Cell',
-        startTime:  getSGTMidnight(0),
-        endTime:    getSGTMidnight(45),
-        orderBy:    'startTime',
-        pageSize:   20
-      }
-    );
+  const maxAttempts = 2;
+  let lastErr = null;
 
-    if (result.isError) throw new Error('MCP error');
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const result = await window.cowork.callMcpTool(
+        'mcp__c6382993-1e06-469a-b86c-e2a6fdb8653c__list_events',
+        {
+          calendarId: 'sibklyoungadults@gmail.com',
+          fullText:   'YA Cell',
+          startTime:  getSGTMidnight(0),
+          endTime:    getSGTMidnight(45),
+          orderBy:    'startTime',
+          pageSize:   20
+        }
+      );
 
-    const data   = result.structuredContent ?? JSON.parse(result.content[0].text);
-    const events = (data.events || [])
-      .filter(ev => ev.summary && ev.summary.includes('YA Cell') && ev.start)
-      .map(ev => ({
-        date:        ev.start.dateTime || ev.start.date,
-        description: (ev.description || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n')
-      }));
+      if (result.isError) throw new Error('MCP error');
 
-    if (events.length > 0) {
+      const data   = result.structuredContent ?? JSON.parse(result.content[0].text);
+      const events = (data.events || [])
+        .filter(ev => ev.summary && ev.summary.includes('YA Cell') && ev.start)
+        .map(ev => ({
+          date:        ev.start.dateTime || ev.start.date,
+          description: (ev.description || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+        }));
+
+      if (events.length === 0) throw new Error('No events returned');
+
       const prev = selectedIdx;
-      liveEvents   = events;
+      liveEvents    = events;
       lastFetchTime = new Date();
       buildChips(prev);
       setStatus('live');
-    } else {
-      throw new Error('No events returned');
+      lastErr = null;
+      break;  // success — no need to retry
+    } catch (err) {
+      lastErr = err;
+      console.warn(`Live fetch attempt ${attempt} failed:`, err);
+      if (attempt < maxAttempts) await sleep(2000);  // brief pause, then retry once
     }
-  } catch (err) {
-    console.warn('Live fetch failed:', err);
+  }
+
+  if (lastErr) {
     if (!liveEvents) {
       liveEvents = FALLBACK_EVENTS;
       buildChips();
     }
     setStatus('error', lastFetchTime ? ('last: ' + fmtRelative(lastFetchTime)) : 'using cached');
-  } finally {
-    isFetching = false;
   }
+
+  isFetching = false;
+}
+
+// Extended fetch for the "Bookings by Cell Group" tab: covers today through
+// end of December (rather than the 45-day window used for Bookings by Date),
+// paginating if needed, so every cell's full remaining-year schedule shows.
+// Same one-retry-then-fall-back behavior as fetchLiveEvents().
+async function fetchLiveEventsCL() {
+  if (isFetchingCL) return;
+  if (!window.cowork || !window.cowork.callMcpTool) {
+    if (!liveEventsCL) renderCellOverview();
+    return;
+  }
+
+  isFetchingCL = true;
+
+  const maxAttempts = 2;
+  let lastErr = null;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      let events = [];
+      let pageToken;
+      let guard = 0;
+      do {
+        const result = await window.cowork.callMcpTool(
+          'mcp__c6382993-1e06-469a-b86c-e2a6fdb8653c__list_events',
+          {
+            calendarId: 'sibklyoungadults@gmail.com',
+            fullText:   'YA Cell',
+            startTime:  getSGTMidnight(0),
+            endTime:    getSGTEndOfDecember(),
+            orderBy:    'startTime',
+            pageSize:   100,
+            pageToken:  pageToken
+          }
+        );
+        if (result.isError) throw new Error('MCP error');
+        const data = result.structuredContent ?? JSON.parse(result.content[0].text);
+        events = events.concat(
+          (data.events || [])
+            .filter(ev => ev.summary && ev.summary.includes('YA Cell') && ev.start)
+            .map(ev => ({
+              date:        ev.start.dateTime || ev.start.date,
+              description: (ev.description || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+            }))
+        );
+        pageToken = data.nextPageToken;
+        guard++;
+      } while (pageToken && guard < 10);
+
+      if (events.length === 0) throw new Error('No events returned');
+
+      liveEventsCL    = events;
+      lastFetchTimeCL = new Date();
+      renderCellOverview();
+      lastErr = null;
+      break;  // success — no need to retry
+    } catch (err) {
+      lastErr = err;
+      console.warn(`Extended (Cell Group) fetch attempt ${attempt} failed:`, err);
+      if (attempt < maxAttempts) await sleep(2000);  // brief pause, then retry once
+    }
+  }
+  // On failure after both attempts, liveEventsCL stays as-is; renderCellOverview()
+  // falls back to the 45-day liveEvents (or FALLBACK_EVENTS) when liveEventsCL is null.
+  if (lastErr) console.warn('Extended (Cell Group) fetch gave up after', maxAttempts, 'attempts:', lastErr);
+
+  isFetchingCL = false;
 }
 
 function manualRefresh() {
   fetchLiveEvents();
+  if (liveEventsCL) fetchLiveEventsCL();
 }
 
 // Auto-refresh every 5 minutes
 setInterval(fetchLiveEvents, REFRESH_MS);
+setInterval(() => { if (liveEventsCL) fetchLiveEventsCL(); }, REFRESH_MS);
 
 // Refresh on tab becoming visible (if data is stale)
 document.addEventListener('visibilitychange', () => {
@@ -490,6 +591,10 @@ document.addEventListener('visibilitychange', () => {
     const stale = !lastFetchTime || (Date.now() - lastFetchTime.getTime() > REFRESH_MS);
     if (stale) fetchLiveEvents();
     else if (lastFetchTime) setStatus('live');  // update relative time
+    if (liveEventsCL) {
+      const staleCL = !lastFetchTimeCL || (Date.now() - lastFetchTimeCL.getTime() > REFRESH_MS);
+      if (staleCL) fetchLiveEventsCL();
+    }
   }
 });
 
@@ -752,7 +857,7 @@ function cellOrderIndex(cgRaw) {
 // Groups every upcoming booking by cell name (fuzzy-matched to CELL_ORDER),
 // then renders one card per cell listing all its dates & rooms.
 function renderCellOverview() {
-  const events = liveEvents || FALLBACK_EVENTS;
+  const events = liveEventsCL || liveEvents || FALLBACK_EVENTS;
   const searchEl = document.getElementById('cellSearch');
   const search = searchEl ? searchEl.value.toLowerCase().trim() : '';
 
