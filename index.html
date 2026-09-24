@@ -393,7 +393,8 @@ async function fetchLiveEvents() {
 
   try {
     const timeMin = getSGTMidnight(0);
-    const timeMax = getSGTMidnight(45);
+    const sgtYear = new Date(Date.now() + 8 * 3600 * 1000).getUTCFullYear();
+    const timeMax = `${sgtYear + 1}-01-01T00:00:00+08:00`;
     const res = await fetch(`/api/events?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}`);
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'API error');
