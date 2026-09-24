@@ -27,7 +27,7 @@ module.exports = async (req, res) => {
       timeMax,
       singleEvents: 'true',
       orderBy: 'startTime',
-      maxResults: '20',
+      maxResults: '2500',
     });
 
     const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(CALENDAR_ID)}/events?${params.toString()}`;
