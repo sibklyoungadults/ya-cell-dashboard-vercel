@@ -1,12 +1,16 @@
 # YA Cell Dashboard — Vercel deployment
 
-This is a standalone copy of the pastor dashboard (Cell Rooms, Cell List, WA Messages,
-Newcomers) that fetches live data straight from the public `sibklyoungadults@gmail.com`
+A standalone dashboard with a **public view** (find your cell, see its bookings by month)
+and **Pastor/Admin tools** behind a passcode login (Bookings by Date, Bookings by Cell Group,
+Send Reminder, Newcomers). It fetches live data straight from the public `sibklyoungadults@gmail.com`
 Google Calendar via a Vercel serverless function — no dependency on Cowork.
 
-Two files matter:
-- `index.html` — the whole dashboard UI (unchanged from the Cowork version, except it
-  now calls `/api/events` instead of `window.cowork.callMcpTool`)
+Files that matter:
+- `index.html` — the whole dashboard UI (calls `/api/events` for live data; `FALLBACK_EVENTS`
+  is a saved snapshot used if the fetch fails)
+- Favicons and `site.webmanifest` live in the repo root (`favicon.ico`, `favicon-*.png`,
+  `apple-touch-icon.png`, `icon-192/512.png`, `icon-maskable-512.png`) and are linked in
+  `index.html`.
 - `api/events.js` — a serverless function that calls the Google Calendar API with an
   API key and returns the same `{ events: [...] }` shape the frontend expects
 
@@ -85,3 +89,10 @@ per visitor, same as before).
 
 Any change to `index.html` (e.g. WhatsApp template wording, the AV setup link) — edit
 the file, commit, push. Vercel redeploys automatically on every push to `main`.
+
+## Admin passcode
+
+The Pastor/Admin login compares a SHA-256 hash of the entered passcode with `ADMIN_HASH` in
+`index.html`. This only hides the admin tabs; it is not real security because the page source
+is public. To change the passcode, run
+`echo -n "newpass" | shasum -a 256` and paste the result into `ADMIN_HASH`.

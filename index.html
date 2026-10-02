@@ -2,12 +2,21 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>YA Cell Dashboard</title>
-<meta name="description" content="Live YA Cell room bookings, WhatsApp reminders, and newcomer tracking.">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="description" content="YA Cell room bookings, WhatsApp reminders, and newcomer tracking.">
 <meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#000000">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<title>YA Cell Dashboard</title>
+</head>
+<body>
 <style>
 :root { color-scheme: light; }
+body{color:#111}
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -18,7 +27,7 @@ body {
 .header {
   background: #fff; border-bottom: 1px solid #e5e7eb;
   padding: 12px 18px; display: flex; align-items: center;
-  justify-content: space-between; position: sticky; top: 0; z-index: 100; gap: 10px;
+  justify-content: space-between; position: sticky; top: env(safe-area-inset-top, 0px); z-index: 100; gap: 10px;
 }
 .header-title { font-size: 16px; font-weight: 700; color: #111; letter-spacing: -0.2px; }
 .header-sub { font-size: 11px; color: #9ca3af; margin-top: 3px; display: flex; align-items: center; gap: 5px; }
@@ -223,10 +232,62 @@ body {
   .upload-zone { padding: 28px 14px; }
   .nc-ctrl-label { min-width: auto; }
 }
-</style>
-</head>
-<body>
+.status-note{font-size:11px;color:#b45309;padding:6px 18px;background:#fffbeb;border-bottom:1px solid #fde68a}
+.status-note[hidden]{display:none}
 
+/* ── Public view + admin login ── */
+.admin-only{display:none}
+body.is-admin .admin-only{display:block}
+body.is-admin .nav-tab.admin-only{display:inline-block}
+.login-btn{background:#fff;color:#128C7E;border:1.5px solid #128C7E;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap}
+.login-btn:hover{background:#f0fdf4}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:300;padding:16px}
+.modal-bg[hidden]{display:none}
+.modal{background:#fff;border-radius:14px;padding:22px;width:100%;max-width:340px;box-shadow:0 10px 30px rgba(0,0,0,.2)}
+.modal h3{font-size:16px;margin-bottom:4px}
+.modal p{font-size:12px;color:#6b7280;margin-bottom:12px}
+.modal input{width:100%;border:1.5px solid #e0e0e0;border-radius:8px;padding:10px 12px;font-size:16px;outline:none}
+.modal input:focus{border-color:#128C7E}
+.modal .err{color:#dc2626;font-size:12px;min-height:16px;margin-top:6px}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
+.modal-actions button{border:none;border-radius:8px;padding:9px 16px;font-size:13px;font-weight:600;cursor:pointer}
+.m-cancel{background:#f0f0f0;color:#333}.m-ok{background:#128C7E;color:#fff}
+#page-public{max-width:760px;margin:0 auto}
+.pub-intro{font-size:13px;color:#4b5563;margin-bottom:12px;line-height:1.5}
+.pub-search{width:100%;border:1.5px solid #e0e0e0;border-radius:10px;padding:11px 14px;font-size:16px;outline:none;background:#fff;margin-bottom:12px}
+.pub-search:focus{border-color:#128C7E}
+.cell-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.cell-tile{background:#fff;border:1.5px solid #e5e7eb;border-radius:12px;padding:12px;cursor:pointer;text-align:left;transition:all .15s}
+.cell-tile:hover{border-color:#25d366;transform:translateY(-1px)}
+.cell-tile .ct-name{font-weight:700;font-size:13.5px;color:#111}
+.cell-tile .ct-next{font-size:11.5px;color:#6b7280;margin-top:4px;line-height:1.35}
+.cell-tile.none{opacity:.55}
+.back-btn{background:none;border:none;color:#128C7E;font-size:13px;font-weight:600;cursor:pointer;padding:4px 0;margin-bottom:8px}
+.pub-cell-title{font-size:20px;font-weight:800;letter-spacing:-.3px;margin-bottom:2px}
+.pub-cell-sub{font-size:12.5px;color:#6b7280;margin-bottom:14px}
+.month-head{font-size:12px;font-weight:700;color:#128C7E;text-transform:uppercase;letter-spacing:.8px;margin:18px 0 8px;display:flex;align-items:center;gap:8px}
+.month-head::after{content:"";flex:1;height:1px;background:#d1d5db}
+.bk{background:#fff;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.07);margin-bottom:8px;overflow:hidden;border-left:4px solid #25d366}
+.bk.next{border-left-color:#f59e0b}
+.bk-main{display:flex;gap:12px;align-items:center;padding:12px 14px;cursor:pointer;width:100%;background:none;border:none;text-align:left;font:inherit;color:inherit}
+.bk-date{flex-shrink:0;text-align:center;min-width:46px}
+.bk-date .d{font-size:22px;font-weight:800;line-height:1}
+.bk-date .w{font-size:10.5px;font-weight:700;color:#9ca3af;text-transform:uppercase;margin-top:2px}
+.bk-info{flex:1;min-width:0}
+.bk-room{font-weight:700;font-size:14.5px}
+.bk-time{font-size:12px;color:#6b7280;margin-top:2px}
+.bk-badges{margin-top:5px}
+.bk-badges .badge{margin:0 4px 0 0}
+.bk-chev{color:#9ca3af;font-size:12px;transition:transform .15s}
+.bk.open .bk-chev{transform:rotate(180deg)}
+.bk-detail{display:none;padding:2px 14px 14px 72px;font-size:12.5px;line-height:1.6;color:#374151}
+.bk.open .bk-detail{display:block}
+.bk-detail ul{list-style:none}
+.bk-detail li{margin-bottom:5px}
+.bk-detail a{color:#128C7E;font-weight:600}
+.next-tag{font-size:10px;font-weight:700;background:#fef3c7;color:#92400e;border-radius:20px;padding:2px 8px;margin-left:6px;vertical-align:middle}
+@media(max-width:640px){.bk-detail{padding-left:14px}}
+</style>
 <!-- Header -->
 <div class="header">
   <div>
@@ -239,20 +300,30 @@ body {
     </div>
   </div>
   <div class="header-actions">
+    <button class="login-btn" id="loginBtn" onclick="adminBtn()">🔒 Pastor/Admin</button>
     <button class="refresh-btn" id="refreshBtn" onclick="manualRefresh()">↻ Refresh</button>
   </div>
 </div>
 
+<div class="status-note" id="statusNote" hidden></div>
+
 <!-- Navigation -->
 <div class="nav">
-  <button class="nav-tab active" id="tab-rooms"     onclick="switchPage('rooms')">📋 Bookings by Date</button>
-  <button class="nav-tab"        id="tab-celllist"  onclick="switchPage('celllist')">🗂️ Bookings by Cell Group</button>
-  <button class="nav-tab"        id="tab-wagen"     onclick="switchPage('wagen')">💬 Send Reminder</button>
-  <button class="nav-tab"        id="tab-newcomers" onclick="switchPage('newcomers')">👥 Newcomers</button>
+  <button class="nav-tab active" id="tab-public"    onclick="switchPage('public')">🏠 Cell Bookings</button>
+  <button class="nav-tab admin-only" id="tab-rooms"     onclick="switchPage('rooms')">📋 Bookings by Date</button>
+  <button class="nav-tab admin-only" id="tab-celllist"  onclick="switchPage('celllist')">🗂️ Bookings by Cell Group</button>
+  <button class="nav-tab admin-only" id="tab-wagen"     onclick="switchPage('wagen')">💬 Send Reminder</button>
+  <button class="nav-tab admin-only" id="tab-newcomers" onclick="switchPage('newcomers')">👥 Newcomers</button>
 </div>
 
 <!-- Page: Bookings by Date -->
-<div id="page-rooms" class="page">
+<!-- Page: Public -->
+<div id="page-public" class="page">
+  <div id="pubContent"></div>
+</div>
+
+<!-- Page: Bookings by Date -->
+<div id="page-rooms" class="page" style="display:none">
   <div class="chips-row" id="eventChips"></div>
   <div id="roomsContent"></div>
 </div>
@@ -314,11 +385,32 @@ body {
   </div>
 </div>
 
+<div class="modal-bg" id="loginModal" hidden onclick="if(event.target===this)closeLogin()">
+  <form class="modal" onsubmit="return submitLogin(event)">
+    <h3>🔒 Pastor / Admin login</h3>
+    <p>Enter the passcode to open the admin tools.</p>
+    <input type="password" id="loginPass" placeholder="Passcode" autocomplete="current-password">
+    <div class="err" id="loginErr"></div>
+    <div class="modal-actions"><button type="button" class="m-cancel" onclick="closeLogin()">Cancel</button><button type="submit" class="m-ok">Unlock</button></div>
+  </form>
+</div>
+
 <script>
 // ── FALLBACK DATA (used only if the /api/events fetch fails) ──────────────
 const FALLBACK_EVENTS = [
-  { date: "2026-07-31T19:00:00+08:00", description: "M3-5: Seekers of Rest\nM6-1: Happy Space\nSanc 3: VVAVES ZONE" },
-  { date: "2026-08-05T18:00:00+08:00", description: "Hospitality, M3-3: The Branch\nM6-1: The Dwelling" }
+  { date: "2026-10-02T19:00:00+08:00", description: "Guest Lounge: Rooted & Grounded\nHospitality 2, M3-3: THE VVAVES CO.OP\nM3-4: VVAVESTORE\nM3-5: PayVvave\nM3-6,7: Happy Space\nM6-1: Seekers of Rest\nM6-2: HEAppy Home" },
+  { date: "2026-10-07T18:00:00+08:00", description: "M6-1: The Dwelling" },
+  { date: "2026-10-09T19:00:00+08:00", description: "Office Boardroom: PayVvave\nGuest Lounge: Rooted & Grounded\nHospitality 2, M3-3: THE VVAVES CO.OP\nM3-4: VVAVESTORE\nM3-5: Seekers of Rest\nM6-1: Happy Space\nM6-2: HEAppy Home" },
+  { date: "2026-10-14T18:00:00+08:00", description: "M6-1: The Dwelling" },
+  { date: "2026-10-16T19:00:00+08:00", description: "Office Boardroom: PayVvave\nHospitality 2, M3-3: THE VVAVES CO.OP\nM3-4: VVAVESTORE\nM3-5: Seekers of Rest\nM6-1: Happy Space\nM6-2: HEAppy Home" },
+  { date: "2026-10-21T18:00:00+08:00", description: "Guest Lounge: Seekers of Rest\nM6-1: The Dwelling" },
+  { date: "2026-10-23T18:00:00+08:00", description: "Guest Lounge: Rooted & Grounded\nHospitality 2, M3-3: THE VVAVES CO.OP\nM3-4: PayVvave\nM3-5: VVAVESTORE\nM3-6,7: Happy Space \nM6-1: Seekers of Rest \nM6-2: HEAppy Home" },
+  { date: "2026-10-28T18:00:00+08:00", description: "M6-1: The Dwelling" },
+  { date: "2026-10-30T18:00:00+08:00", description: "Office Boardroom: PayVvave\nGuest Lounge: Happy Space\nHospitality 2, M3-3: THE VVAVES CO.OP\nM6-1: Seekers of Rest\nM6-2,3: VVAVESTORE" },
+  { date: "2026-11-04T18:00:00+08:00", description: "M6-1: The Dwelling\nLonghouse: The Dwelling" },
+  { date: "2026-11-06T18:00:00+08:00", description: "Office Boardroom: PayVvave\nGuest Lounge + Piano: Seekers of Rest\nM3-4: Rooted & Grounded\nM3-5: HEAppy Home\nM6-1: Happy Space\nM6-2: VVAVESTORE" },
+  { date: "2026-11-11T18:00:00+08:00", description: "M6-1: The Dwelling" },
+  { date: "2026-11-13T19:00:00+08:00", description: "Guest Lounge + Piano: Seekers of Rest\nM3-4: PayVvave\nM3-5: VVAVESTORE\nM6-1: Happy Space\nM6-2: HEAppy Home" }
 ];
 // ─────────────────────────────────────────────────────────────────────────
 
@@ -333,14 +425,41 @@ let CELL_OVERVIEW_TEXTS = [];  // plain-text copy blocks, one per rendered cell 
 const REFRESH_MS   = 5 * 60 * 1000;  // 5 minutes
 
 // ── PAGE SWITCH ───────────────────────────────────────────────────────────
+const ALL_PAGES = ['public','rooms','celllist','wagen','newcomers'];
+const ADMIN_HASH = "591ecc78a549204081254079cde66f56d132e13847ac34e42d27d5e3158199b0";
+let isAdmin = false;
 function switchPage(page) {
-  ['rooms','celllist','wagen','newcomers'].forEach(p => {
+  if (page !== 'public' && !isAdmin) page = 'public';
+  ALL_PAGES.forEach(p => {
     document.getElementById('page-' + p).style.display = p === page ? '' : 'none';
     document.getElementById('tab-' + p).classList.toggle('active', p === page);
   });
 }
+async function sha256(t){
+  const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(t));
+  return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('');
+}
+function setAdmin(on){
+  isAdmin = on;
+  document.body.classList.toggle('is-admin', on);
+  document.getElementById('loginBtn').textContent = on ? '🔓 Log out' : '🔒 Pastor/Admin';
+  try { on ? sessionStorage.setItem('yaAdmin','1') : sessionStorage.removeItem('yaAdmin'); } catch(e){}
+  switchPage(on ? 'rooms' : 'public');
+}
+function adminBtn(){ if (isAdmin) setAdmin(false); else openLogin(); }
+function openLogin(){ const m=document.getElementById('loginModal'); m.hidden=false; document.getElementById('loginErr').textContent=''; const i=document.getElementById('loginPass'); i.value=''; setTimeout(()=>i.focus(),50); }
+function closeLogin(){ document.getElementById('loginModal').hidden=true; }
+async function submitLogin(e){
+  e.preventDefault();
+  const v = document.getElementById('loginPass').value;
+  let ok=false;
+  try { ok = (await sha256(v)) === ADMIN_HASH; } catch(err){ document.getElementById('loginErr').textContent='Login unavailable in this browser.'; return false; }
+  if (ok){ closeLogin(); setAdmin(true); }
+  else document.getElementById('loginErr').textContent='Incorrect passcode.';
+  return false;
+}
 
-// ── LIVE FETCH (via our own /api/events serverless function) ──────────────
+// ── LIVE FETCH (via /api/events serverless function) ──────────────
 function getSGTMidnight(offsetDays) {
   const sgtNow = new Date(Date.now() + 8 * 3600 * 1000);
   sgtNow.setUTCHours(0, 0, 0, 0);
@@ -386,55 +505,52 @@ setInterval(() => {
   if (lastFetchTime && !isFetching) setStatus('live');
 }, 30000);
 
+function showNote(t){ const n=document.getElementById('statusNote'); n.textContent=t||''; n.hidden=!t; }
+
+function useFallback(detail) {
+  if (!liveEvents) { liveEvents = FALLBACK_EVENTS; buildChips(); }
+  setStatus('error', lastFetchTime ? ('last: ' + fmtRelative(lastFetchTime)) : 'using saved snapshot');
+}
+
 async function fetchLiveEvents() {
   if (isFetching) return;
   isFetching = true;
   setStatus('loading');
-
   try {
     const timeMin = getSGTMidnight(0);
-    const sgtYear = new Date(Date.now() + 8 * 3600 * 1000).getUTCFullYear();
-    const timeMax = `${sgtYear + 1}-01-01T00:00:00+08:00`;
+    const timeMax = getSGTMidnight(120);
     const res = await fetch(`/api/events?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}`);
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'API error');
-
-    const events = (data.events || []);
-
-    if (events.length > 0) {
-      const prev = selectedIdx;
-      liveEvents   = events;
-      lastFetchTime = new Date();
-      buildChips(prev);
-      setStatus('live');
-    } else {
-      throw new Error('No events returned');
-    }
+    const events = (data.events || [])
+      .filter(e => e.date)
+      .sort((a, b) => new Date(a.date) - new Date(b.date));
+    if (!events.length) throw new Error('No events returned');
+    const prev = selectedIdx;
+    liveEvents = events;
+    lastFetchTime = new Date();
+    buildChips(prev);
+    setStatus('live');
+    showNote('');
   } catch (err) {
     console.warn('Live fetch failed:', err);
-    if (!liveEvents) {
-      liveEvents = FALLBACK_EVENTS;
-      buildChips();
-    }
-    setStatus('error', lastFetchTime ? ('last: ' + fmtRelative(lastFetchTime)) : 'using cached');
+    useFallback('error');
   } finally {
     isFetching = false;
   }
 }
 
-function manualRefresh() {
-  fetchLiveEvents();
-}
+function manualRefresh() { fetchLiveEvents(); }
 
 // Auto-refresh every 5 minutes
 setInterval(fetchLiveEvents, REFRESH_MS);
 
-// Refresh on tab becoming visible (if data is stale)
+// Refresh when the tab becomes visible again (if data is stale)
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') {
     const stale = !lastFetchTime || (Date.now() - lastFetchTime.getTime() > REFRESH_MS);
     if (stale) fetchLiveEvents();
-    else if (lastFetchTime) setStatus('live');  // update relative time
+    else if (lastFetchTime) setStatus('live');
   }
 });
 
@@ -546,6 +662,7 @@ function buildChips(keepIdx) {
   // Keep the per-cell overview and WA Messages pages fresh whenever events change
   renderCellOverview();
   buildWAChips(idx);
+  renderPublic();
 }
 
 function joinList(arr) {
@@ -634,7 +751,7 @@ function showEvent(idx) {
 const CELL_ORDER = [
   "The Dwelling","Oasis","Selah","Restored","Restful Presence","Seekers of Rest","Sprouts",
   "Lion & Lamb","Happinest","Happy Space","HEAppy Home","Happy Corner","Pocketful of Joy",
-  "Nest of Joy (N'Joy)","Everlasting Covenant (E'Cove)","WOW!","VVAVESSTORE","the VVAVES co.op",
+  "Nest of Joy (N'Joy)","Everlasting Covenant (E'Cove)","WOW!","VVAVESTORE","the VVAVES co.op",
   "PayVVave","Rooted & Grounded","SPRING","The Branch","The Oak","Afresh","Light up",
   "Peace and Joy","Safe Haven","Duracell","LiveWire"
 ];
@@ -687,6 +804,33 @@ function cellOrderIndex(cgRaw) {
   return CELL_ORDER.length;
 }
 
+// ── WhatsApp-style copy text for one cell (grouped by month) ──────────────
+const COPY_TZ = 'Asia/Kuala_Lumpur';
+function fmtAsOf() {
+  const d = new Date();
+  const dp = d.toLocaleDateString('en-GB', { day:'numeric', month:'short', timeZone: COPY_TZ });
+  const tp = d.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit', hour12:true, timeZone: COPY_TZ }).replace(' ', '').toLowerCase();
+  return `${dp}, ${tp}`;
+}
+function buildCellCopy(c, asOf) {
+  let out = `*${c.name}*\n_Upcoming bookings as of ${asOf}_`;
+  if (!c.bookings.length) return out + '\n\nNo upcoming bookings';
+  const nowYear = new Date().toLocaleDateString('en-GB', { year:'numeric', timeZone: COPY_TZ });
+  let month = '';
+  c.bookings.forEach(b => {
+    const d = new Date(b.date);
+    const mName = d.toLocaleDateString('en-GB', { month:'long', timeZone: COPY_TZ });
+    const yr = d.toLocaleDateString('en-GB', { year:'numeric', timeZone: COPY_TZ });
+    const label = yr !== nowYear ? `${mName} ${yr}` : mName;
+    if (label !== month) { month = label; out += `\n\n*${label}*`; }
+    const wd = d.toLocaleDateString('en-GB', { weekday:'short', timeZone: COPY_TZ });
+    const day = d.toLocaleDateString('en-GB', { day:'numeric', timeZone: COPY_TZ });
+    const tm = d.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit', hour12:true, timeZone: COPY_TZ }).replace(' ', '').toLowerCase();
+    out += `\n• ${wd} ${day}, ${tm} – ${b.room}${b.ac ? ' (AC)' : ''}${b.piano ? ' (Piano)' : ''}${b.guitar ? ' (Guitar)' : ''}`;
+  });
+  return out;
+}
+
 function renderCellOverview() {
   const events = liveEvents || FALLBACK_EVENTS;
   const searchEl = document.getElementById('cellSearch');
@@ -733,13 +877,8 @@ function renderCellOverview() {
     return;
   }
 
-  const todayHeader = fmtTodayHeader();
-  CELL_OVERVIEW_TEXTS = cells.map(c => {
-    const lines = c.bookings.length
-      ? c.bookings.map(b => `${fmtDateCopy(b.date)} — ${b.room}${b.ac ? ' (AC)' : ''}${b.piano ? ' (Piano)' : ''}${b.guitar ? ' (Guitar)' : ''}`)
-      : ['No upcoming bookings'];
-    return `*Latest booking as ${todayHeader}: ${c.name}*\n${lines.join('\n')}`;
-  });
+  const asOf = fmtAsOf();
+  CELL_OVERVIEW_TEXTS = cells.map(c => buildCellCopy(c, asOf));
 
   content.innerHTML = cells.map((c, i) => {
     const rowsHtml = c.bookings.length
@@ -802,7 +941,7 @@ function copyWAMsg(btn, id) {
     document.execCommand('copy');
     btn.textContent = '✅ Copied!'; btn.classList.add('copied');
     setTimeout(() => { btn.textContent = '📋 Copy'; btn.classList.remove('copied'); }, 2000);
-  } catch (e) { alert('Text is selected — press Cmd+C to copy.'); }
+  } catch (e) { btn.textContent = 'Press Ctrl/Cmd+C'; }
 }
 
 function buildWAChips(keepIdx) {
@@ -902,7 +1041,7 @@ function handleFile(file) {
   const reader = new FileReader();
   reader.onload = e => {
     const { headers, rows } = parseCSV(e.target.result);
-    if (!rows.length) { alert('No data found in this CSV.'); return; }
+    if (!rows.length) { showNote('No data found in that CSV.'); return; }
     loadNewcomers(headers, rows);
   };
   reader.readAsText(file);
@@ -1065,7 +1204,92 @@ function renderNC() {
   ).join('');
 }
 
+
+// ── PUBLIC VIEW (cell picker → bookings grouped by month) ────────────────
+const TZ = 'Asia/Kuala_Lumpur';
+let pubCell = null;
+try { pubCell = localStorage.getItem('yaPubCell'); } catch(e){}
+function pubGroups() {
+  const events = liveEvents || FALLBACK_EVENTS;
+  const now = Date.now() - 4*3600*1000;
+  const known = new Map(), unmatched = new Map();
+  events.forEach(ev => {
+    if (!ev.description || new Date(ev.date).getTime() < now) return;
+    ev.description.split('\n').map(parseLine).filter(Boolean).forEach(({room, cg}) => {
+      const cleanRoom = room.replace(/\s*\+\s*(piano|guitar|cajon|first aid kit)(\s*\+\s*(piano|guitar|cajon|first aid kit))*/gi,'').replace(/,\s*$/,'').trim();
+      const b = { date: ev.date, room: cleanRoom, ac: isAC(room), piano: hasPiano(room)||hasPiano(cg), guitar: hasGuitar(room)||hasGuitar(cg) };
+      const idx = cellOrderIndex(cg);
+      if (idx < CELL_ORDER.length) { if(!known.has(idx)) known.set(idx,{name:CELL_ORDER[idx],bookings:[]}); known.get(idx).bookings.push(b); }
+      else { const k=cg.trim().toLowerCase(); if(!unmatched.has(k)) unmatched.set(k,{name:cg.trim(),bookings:[]}); unmatched.get(k).bookings.push(b); }
+    });
+  });
+  let cells = CELL_ORDER.map((n,i)=>known.get(i)||{name:n,bookings:[]}).concat([...unmatched.values()]);
+  cells.forEach(c=>c.bookings.sort((a,b)=>new Date(a.date)-new Date(b.date)));
+  return cells.sort((a,b)=>(b.bookings.length>0)-(a.bookings.length>0)||a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+}
+function fmtTimeOnly(iso){ return new Date(iso).toLocaleTimeString('en-SG',{hour:'numeric',minute:'2-digit',hour12:true,timeZone:TZ}); }
+function pubBadges(b){
+  return (b.ac?'<span class="badge badge-ac">❄️ AC Remote</span>':'<span class="badge badge-std">Standard</span>')
+   + (b.piano?'<span class="badge badge-piano">🎹 Piano</span>':'') + (b.guitar?'<span class="badge badge-guitar">🎸 Guitar</span>':'');
+}
+function pubDetail(b){
+  let li = '<li>🔑 <b>Key</b>: collect/return at guard post (level 4). Can collect from 5pm onwards.</li>'
+    + `<li>🎥 <b>Sound system &amp; projector guide</b>: <a href="${AV_LINK}" target="_blank" rel="noopener">${AV_LINK.replace('https://','')}</a></li>`;
+  if (b.ac) li += '<li>❄️ <b>Aircon remote</b>: collect/return at guard post (level 4). Please switch off all aircons.</li>';
+  if (b.piano) li += '<li>🎹 <b>Piano</b>: collect/return at office front desk.</li>';
+  if (b.guitar) li += '<li>🎸 <b>Guitar</b>: collect/return at office front desk.</li>';
+  li += '<li>🪧 <b>CG signage</b>: return to guard post (level 4) together with the keys.</li>';
+  return '<ul>'+li+'</ul>';
+}
+function pickCell(name){ pubCell = name; try{ name?localStorage.setItem('yaPubCell',name):localStorage.removeItem('yaPubCell'); }catch(e){} renderPublic(); window.scrollTo(0,0); }
+function toggleBk(el){ el.closest('.bk').classList.toggle('open'); }
+function renderPublic(){
+  const box = document.getElementById('pubContent'); if(!box) return;
+  const cells = pubGroups();
+  const cur = pubCell && cells.find(c=>c.name===pubCell);
+  if (cur) {
+    let html = `<button class="back-btn" onclick="pickCell(null)">← All cells</button>
+      <div class="pub-cell-title">${esc(cur.name)}</div>
+      <div class="pub-cell-sub">${cur.bookings.length ? cur.bookings.length+' upcoming booking'+(cur.bookings.length!==1?'s':'')+' · tap a booking for collection details' : 'No upcoming room bookings yet.'}</div>`;
+    let month = '', first = true;
+    cur.bookings.forEach(b => {
+      const d = new Date(b.date);
+      const m = d.toLocaleDateString('en-SG',{month:'long',year:'numeric',timeZone:TZ});
+      if (m !== month) { month = m; html += `<div class="month-head">${esc(m)}</div>`; }
+      html += `<div class="bk${first?' next':''}">
+        <button class="bk-main" onclick="toggleBk(this)">
+          <div class="bk-date"><div class="d">${d.toLocaleDateString('en-SG',{day:'numeric',timeZone:TZ})}</div><div class="w">${d.toLocaleDateString('en-SG',{weekday:'short',timeZone:TZ})}</div></div>
+          <div class="bk-info"><div class="bk-room">${esc(b.room)}${first?'<span class="next-tag">NEXT</span>':''}</div>
+            <div class="bk-time">${esc(d.toLocaleDateString('en-SG',{weekday:'long',day:'numeric',month:'short',timeZone:TZ}))} · ${esc(fmtTimeOnly(b.date))}</div>
+            <div class="bk-badges">${pubBadges(b)}</div></div>
+          <span class="bk-chev">▼</span>
+        </button>
+        <div class="bk-detail">${pubDetail(b)}</div>
+      </div>`;
+      first = false;
+    });
+    box.innerHTML = html; return;
+  }
+  const q = (document.getElementById('pubSearch')||{}).value || '';
+  box.innerHTML = `<div class="pub-intro">Find your cell group to see its upcoming room bookings, by month.</div>
+    <input class="pub-search" id="pubSearch" type="search" placeholder="🔍 Search your cell name…" oninput="renderPubGrid()" value="${esc(q)}">
+    <div class="cell-grid" id="pubGrid"></div>`;
+  renderPubGrid();
+}
+function renderPubGrid(){
+  const q = ((document.getElementById('pubSearch')||{}).value||'').toLowerCase().trim();
+  const cells = pubGroups().filter(c=>!q||c.name.toLowerCase().includes(q));
+  const g = document.getElementById('pubGrid'); if(!g) return;
+  g.innerHTML = cells.length ? cells.map(c=>{
+    const n=c.bookings[0];
+    const nx = n ? 'Next: '+esc(new Date(n.date).toLocaleDateString('en-SG',{weekday:'short',day:'numeric',month:'short',timeZone:TZ}))+' · '+esc(n.room) : 'No upcoming bookings';
+    return `<button class="cell-tile${n?'':' none'}" data-c="${esc(c.name)}"><div class="ct-name">${esc(c.name)}</div><div class="ct-next">${nx}</div></button>`;
+  }).join('') : '<div class="no-rooms" style="grid-column:1/-1">No cells match.</div>';
+  g.querySelectorAll('.cell-tile').forEach(t=>t.onclick=()=>pickCell(t.dataset.c));
+}
+
 // ── INIT ──────────────────────────────────────────────────────────────────
+try{ if(sessionStorage.getItem('yaAdmin')==='1') setAdmin(true); }catch(e){}
 buildChips();
 setStatus('loading');
 fetchLiveEvents();
