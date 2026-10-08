@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YA Cell Team Login</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="stylesheet" href="/shared/dashboard.css">
+</head>
+<body>
+<div class="login-wrap">
+  <div class="login-card">
+    <div class="login-title">⛪ YA Cell Team Area</div>
+    <div class="login-sub">Enter the team password to continue</div>
+    <form id="loginForm" onsubmit="return doLogin(event)">
+      <input class="login-input" type="password" id="password" placeholder="Team password" autofocus required>
+      <div class="login-error" id="loginError"></div>
+      <button class="login-btn" type="submit" id="loginBtn">Log in</button>
+    </form>
+  </div>
+</div>
+
+<script>
+// If a ?next= redirect target was set by middleware.js (see project root),
+// send the user back there after a successful login instead of always to
+// /team/index.html. Falls back to /team/index.html if nothing was set.
+function getNextPath() {
+  const params = new URLSearchParams(window.location.search);
+  const next = params.get('next');
+  return next && next.startsWith('/team') ? next : '/team/index.html';
+}
+
+async function doLogin(e) {
+  e.preventDefault();
+  const btn = document.getElementById('loginBtn');
+  const err = document.getElementById('loginError');
+  const password = document.getElementById('password').value;
+  err.textContent = '';
+  btn.disabled = true;
+  btn.textContent = 'Checking…';
+
+  try {
+    const res = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password })
+    });
+    if (res.ok) {
+      window.location.href = getNextPath();
+    } else {
+      err.textContent = 'Wrong password — try again.';
+      btn.disabled = false;
+      btn.textContent = 'Log in';
+    }
+  } catch (e) {
+    err.textContent = 'Something went wrong — check your connection and try again.';
+    btn.disabled = false;
+    btn.textContent = 'Log in';
+  }
+  return false;
+}
+</script>
+</body>
+</html>
