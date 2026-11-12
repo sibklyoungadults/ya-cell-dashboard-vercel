@@ -99,10 +99,52 @@ function cleanResourceName(s) {
   if (/^M\d/i.test(s)) return s.toUpperCase();
   return s.toLowerCase().replace(/\b[a-z]/g, c => c.toUpperCase());
 }
-function eventRooms(ev) {
+// Raw booked-room names for an event (calendar room resources, else the location text)
+function eventRoomsRaw(ev) {
   let names = (ev.rooms || []).slice();
   if (!names.length && ev.location) names = String(ev.location).split(/,\s*(?=[A-Z]+-[A-Z0-9]+-)/);
-  return [...new Set(names.map(cleanResourceName).filter(Boolean))];
+  return names;
+}
+function eventRooms(ev) {
+  return [...new Set(eventRoomsRaw(ev).map(cleanResourceName).filter(Boolean))];
+}
+
+// Room "keys" used to tell whether a booked room is already named in the
+// description. Building rooms become "m3-6"-style keys (so "M3-6,7" covers
+// M3-6 and M3-7, and "Hospitality 2, M3-3" covers both); other rooms become
+// a normalised name ("guestlounge", "longhouse", "officeboardroom").
+function normRoomName(s) { return String(s).toLowerCase().replace(/^the\s+/, '').replace(/[^a-z0-9]/g, ''); }
+function roomKeysFromText(text) {
+  const keys = new Set();
+  let t = cleanRoomName(String(text)).toLowerCase();
+  t = t.replace(/m\s*-?\s*([36])\s*-\s*(\d+(?:\s*(?:,|&|and|\/)\s*\d+)*)/g, (m, b, nums) => {
+    nums.match(/\d+/g).forEach(n => keys.add('m' + b + '-' + n));
+    return ' ';
+  });
+  t.split(/,|&|\/|\band\b/).forEach(part => {
+    const n = normRoomName(part.trim());
+    if (n && !/^\d+$/.test(n)) keys.add('n:' + n);
+  });
+  return keys;
+}
+// Keys for one booked room resource, e.g. "BY-6-M6-3 (THE LONGHOUSE) (40)"
+// → m6-3 + longhouse; "BY-4-GUEST LOUNGE (50)" → guestlounge.
+function resourceKeys(raw) {
+  const keys = roomKeysFromText(cleanResourceName(raw));
+  (String(raw).match(/\(([^)]*)\)/g) || []).forEach(par => {
+    const n = normRoomName(par.slice(1, -1));
+    if (n && !/^\d+$/.test(n) && !/floor$/.test(n)) keys.add('n:' + n);
+  });
+  return keys;
+}
+function roomIsCovered(rKeys, covered) {
+  for (const k of rKeys) {
+    if (covered.has(k)) return true;
+    if (k.startsWith('n:') && k.length > 5) {
+      for (const c of covered) if (c.startsWith('n:') && c.length > 5 && (c.includes(k.slice(2)) || k.includes(c.slice(2)))) return true;
+    }
+  }
+  return false;
 }
 
 function cleanRoomName(room) {
@@ -250,16 +292,25 @@ async function fetchCalendarEvents({ startTime, endTime, fullText = 'YA Cell' })
       if (!byTime.has(key)) byTime.set(key, { date, lines: [], rooms: [] });
       const desc = (ev.description || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
       if (desc) byTime.get(key).lines.push(desc);
-      byTime.get(key).rooms.push(...eventRooms(ev));
+      byTime.get(key).rooms.push(...eventRoomsRaw(ev));
     });
 
+  // Booked rooms not named in any "Room: Cell" line are listed as "Room: Unassigned"
+  // (all of them when a date has no description, the left-over ones otherwise).
   const events = [...byTime.values()]
-    .map(e => ({
-      date: e.date,
-      description: e.lines.length
-        ? [...new Set(e.lines)].join('\n')
-        : [...new Set(e.rooms)].map(r => r + ': ' + UNASSIGNED).join('\n')
-    }))
+    .map(e => {
+      const lines = [...new Set(e.lines.join('\n').split('\n').map(l => l.trim()).filter(Boolean))];
+      const covered = new Set();
+      lines.map(parseLine).filter(Boolean).forEach(({ room }) => roomKeysFromText(room).forEach(k => covered.add(k)));
+      const seen = new Set(), leftovers = [];
+      e.rooms.forEach(raw => {
+        const name = cleanResourceName(raw);
+        if (!name || seen.has(name)) return;
+        seen.add(name);
+        if (!roomIsCovered(resourceKeys(raw), covered)) leftovers.push(name + ': ' + UNASSIGNED);
+      });
+      return { date: e.date, description: lines.concat(leftovers).join('\n') };
+    })
     .sort((a, b) => new Date(a.date) - new Date(b.date));
   events.failed = data.failed || [];
   return events;
