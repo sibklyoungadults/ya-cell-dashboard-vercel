@@ -1,7 +1,0 @@
-{
-  "headers": [
-    { "source": "/portal-config.json", "headers": [{ "key": "Cache-Control", "value": "no-store, max-age=0" }] },
-    { "source": "/", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] },
-    { "source": "/index.html", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] }
-  ]
-}
