@@ -29,15 +29,23 @@
 
 <!-- Navigation -->
 <div class="nav">
-  <button class="nav-tab active" id="tab-celllist"  onclick="switchPage('celllist')">🗂️ Bookings by Cell Group</button>
+  <button class="nav-tab active" id="tab-dates"     onclick="switchPage('dates')">📋 Bookings by Date</button>
+  <button class="nav-tab"        id="tab-celllist"  onclick="switchPage('celllist')">🗂️ Bookings by Cell Group</button>
   <button class="nav-tab"        id="tab-wagen"     onclick="switchPage('wagen')">💬 Send Reminder</button>
   <button class="nav-tab"        id="tab-newcomers" onclick="switchPage('newcomers')">👥 Newcomers</button>
   <button class="nav-tab"        id="tab-edm"       onclick="switchPage('edm')">📧 Email Templates</button>
   <button class="nav-tab"        id="tab-settings"  onclick="switchPage('settings')">⚙️ Portal Settings</button>
 </div>
 
-<!-- Page: Cell List (per-cell overview across all upcoming dates, through December) -->
-<div id="page-celllist" class="page">
+<!-- Page: Bookings by Date (same view as the public tab; name/description shared via Portal Settings) -->
+<div id="page-dates" class="page">
+  <div class="tab-intro" data-intro="rooms"></div>
+  <div class="chips-row" id="eventChipsD"></div>
+  <div id="datesContent"></div>
+</div>
+
+<!-- Page: Cell List (per-cell overview across all upcoming dates) -->
+<div id="page-celllist" class="page" style="display:none">
   <div class="table-toolbar" style="margin-bottom:12px">
     <span class="tab-intro" data-intro="celllist" style="margin-bottom:0;flex:1;min-width:220px"></span>
     <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap">
@@ -109,7 +117,7 @@
       <div>
         <h4>✅ Do it here</h4>
         <ul>
-          <li><b>Show or hide public tabs:</b> Choose which tabs leaders see on the public site. <i>Team tabs are always behind the login.</i></li>
+          <li><b>Show or hide public tabs:</b> Choose which tabs leaders see on the public site. <i>Team tabs, including Bookings by Date, are always available after logging in.</i></li>
           <li><b>Rename tabs:</b> Give any public or team tab a clearer name, emoji included.</li>
           <li><b>Tab descriptions:</b> Edit the short guide at the top of each tab.</li>
           <li><b>Welcome note:</b> A message shown on the public site under the tab bar. <i>Leave it empty to hide it.</i></li>
@@ -221,6 +229,7 @@ let liveEventsCL     = null;  // extended dataset (through Dec) — powers Cell 
 let lastFetchTimeCL  = null;
 let isFetchingCL     = false;
 let selectedIdxWA    = 0;
+let selectedIdxD     = 0;
 let CELL_OVERVIEW_TEXTS = [];
 const REFRESH_MS = 5 * 60 * 1000;
 
@@ -249,6 +258,8 @@ function showNote(msg) { const n = document.getElementById('statusNote'); n.text
 function renderNoDataCL(msg) {
   const box = '<div class="no-rooms">' + esc(msg) + '</div>';
   document.getElementById('cellListContent').innerHTML = box;
+  document.getElementById('eventChipsD').innerHTML = '';
+  document.getElementById('datesContent').innerHTML = box;
   document.getElementById('eventChipsWA').innerHTML = '';
   document.getElementById('wagenContent').innerHTML = box;
   CELL_OVERVIEW_TEXTS = [];
@@ -269,7 +280,7 @@ async function fetchLiveEventsCL() {
       liveEventsCL    = events;
       lastFetchTimeCL = new Date();
       showNote(failedCalendarsNote(events));
-      if (events.length) { renderCellOverview(); buildWAChips(selectedIdxWA); }
+      if (events.length) { buildDateChips(selectedIdxD); renderCellOverview(); buildWAChips(selectedIdxWA); }
       else renderNoDataCL('No YA Cell bookings in the next 120 days.');
       setStatus('live');
       lastErr = null;
@@ -299,7 +310,7 @@ document.addEventListener('visibilitychange', () => {
 
 // ── PAGE SWITCH ──────────────────────────────────────────────────────────
 function switchPage(page) {
-  ['celllist','wagen','newcomers','edm','settings'].forEach(p => {
+  ['dates','celllist','wagen','newcomers','edm','settings'].forEach(p => {
     document.getElementById('page-' + p).style.display = p === page ? '' : 'none';
     document.getElementById('tab-' + p).classList.toggle('active', p === page);
   });
@@ -317,6 +328,61 @@ function copyAllCells(btn) {
   if (!CELL_OVERVIEW_TEXTS.length) return;
   copyToClipboard(CELL_OVERVIEW_TEXTS.join('\n\n'));
   flashCopied(btn, '📋 Copy All');
+}
+
+// ── BOOKINGS BY DATE (team copy of the public view) ──────────────────────
+function buildDateChips(keepIdx) {
+  const events = liveEventsCL || [];
+  const row = document.getElementById('eventChipsD');
+  row.innerHTML = '';
+  if (!events.length) return;
+  const now = new Date();
+  let defaultIdx = 0;
+  events.forEach((ev, i) => {
+    const d = new Date(ev.date);
+    if (d < now && !isToday(ev.date) && defaultIdx === i) defaultIdx = i + 1;
+    const btn = document.createElement('button');
+    btn.className = 'chip' + (isToday(ev.date) ? ' today' : '');
+    btn.textContent = fmtShort(ev.date);
+    btn.onclick = () => showDateEvent(i);
+    row.appendChild(btn);
+  });
+  if (defaultIdx >= events.length) defaultIdx = 0;
+  showDateEvent((keepIdx !== undefined && keepIdx < events.length) ? keepIdx : defaultIdx);
+}
+function buildDateSummary(rowsInfo) {
+  const total = rowsInfo.length;
+  if (total === 0) return 'No room bookings recorded for this date yet.';
+  const un = rowsInfo.filter(r => isUnassigned(r.cg)).length;
+  const acRooms = rowsInfo.filter(r => r.ac).map(r => r.cleanRoom);
+  let out = `${total} room booking${total !== 1 ? 's' : ''}${un ? ` (${un === total ? 'all' : un} unassigned)` : ''}.`;
+  if (acRooms.length) out += ` ${joinList(acRooms)} ${acRooms.length === 1 ? 'needs' : 'need'} the AC remote.`;
+  const instruments = [];
+  if (rowsInfo.some(r => r.piano)) instruments.push('Piano');
+  if (rowsInfo.some(r => r.guitar)) instruments.push('Guitar');
+  if (instruments.length) out += ` ${joinList(instruments)} requested.`;
+  return out;
+}
+function showDateEvent(idx) {
+  const events = liveEventsCL || [];
+  const ev = events[idx];
+  if (!ev) return;
+  selectedIdxD = idx;
+  document.querySelectorAll('#eventChipsD .chip').forEach((c, i) => c.classList.toggle('active', i === idx));
+  const rowsInfo = (ev.description ? ev.description.split('\n').map(parseLine).filter(Boolean) : []).map(({ room, cg }) => ({
+    cg, ac: isAC(room), piano: hasPiano(room) || hasPiano(cg), guitar: hasGuitar(room) || hasGuitar(cg), cleanRoom: cleanRoomName(room)
+  }));
+  let html = `<div class="event-heading">${esc(fmtDateLong(ev.date))}${isToday(ev.date) ? '<span class="day-badge is-today">Today</span>' : ''}</div>
+    <div class="date-summary">${esc(buildDateSummary(rowsInfo))}</div>`;
+  if (!rowsInfo.length) { document.getElementById('datesContent').innerHTML = html + '<div class="no-rooms">No room bookings recorded yet.</div>'; return; }
+  html += `<div class="room-card"><div class="room-table-scroll"><table class="room-table">
+    <thead><tr><th class="col-wide">Room</th><th>Cell Group</th><th class="col-fixed">Request type</th></tr></thead><tbody>`;
+  rowsInfo.forEach(({ cg, ac, piano, guitar, cleanRoom }) => {
+    const typeBadge = ac ? '<span class="badge badge-ac">❄️ AC Remote</span>' : '<span class="badge badge-std">Standard</span>';
+    const cgCell = isUnassigned(cg) ? '<span class="badge badge-un">Unassigned</span>' : esc(cg);
+    html += `<tr><td><span class="room-name">${esc(cleanRoom)}</span></td><td>${cgCell}</td><td>${typeBadge}${piano ? '<span class="badge badge-piano">🎹 Piano</span>' : ''}${guitar ? '<span class="badge badge-guitar">🎸 Guitar</span>' : ''}</td></tr>`;
+  });
+  document.getElementById('datesContent').innerHTML = html + '</tbody></table></div></div>';
 }
 
 // ── CELL LIST PAGE (cell-first grouping) ────────────────────────────────
@@ -704,6 +770,7 @@ function setPath(o, path, v){ const ks=path.split('.'); let a=o; ks.slice(0,-1).
 
 function applyTeamPortal() {
   TEAM_TABS.forEach(t => { const b = document.getElementById('tab-' + t); const l = ((DRAFT.tabs||{})[t]||{}).label; if (b && l) b.textContent = l; });
+  const dl = ((DRAFT.tabs||{}).rooms||{}).label; if (dl) document.getElementById('tab-dates').textContent = dl;
   renderPortalIntros(DRAFT);
   if (liveEventsCL && liveEventsCL.length) showWAEvent(selectedIdxWA);
 }
@@ -717,6 +784,7 @@ function tabRow(t, isPublic) {
     <textarea class="ps-input" rows="2" data-path="tabs.${t}.intro" placeholder="Description at the top of this tab (leave empty for none)"></textarea>
     ${t === 'custom' ? '<div class="ps-note">Leaders only see this tab when both “Tab on” and “Show to leaders” are switched on.</div>' : ''}
     ${t === 'request' ? '<div class="ps-note">Shown above the request form’s own intro text.</div>' : ''}
+    ${t === 'rooms' ? '<div class="ps-note">Also used for the Bookings by Date tab in the team area, which is always shown to the team.</div>' : ''}
   </div>`;
 }
 function renderSettingsForm() {
