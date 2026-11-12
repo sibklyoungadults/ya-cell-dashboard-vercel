@@ -8,14 +8,10 @@
 // maintainer to test or reuse without touching the network/auth code.
 // ============================================================================
 
-// ── Fallback data (used only if /api/calendar is unreachable) ──────────────
-// Kept small and clearly out of date on purpose — it's an emergency display
-// so the page isn't blank, not a source of truth. Update it occasionally if
-// you want, but it is NOT required for the site to work correctly.
-const FALLBACK_EVENTS = [
-  { date: "2026-09-18T19:00:00+08:00", description: "Hospitality 2, M3-3: VVAVES CO.OP\nM3-5: Rooted & Grounded\nM3-6,7: Happy Space\nGuest Lounge + Piano: HEAppy Home\nM6-1: Seekers of Rest\nM6-2: PayVvave" },
-  { date: "2026-09-25T19:00:00+08:00", description: "Guest Lounge: Rooted & Grounded\nHospitality 2, M3-3: VVAVES CO.OP\nM3-6,7: Happy Space\nM6-1: Seekers of Rest\nM6-2: PayVvave" }
-];
+// ── No fallback data ───────────────────────────────────────────────────────
+// Bookings are always read live. If the calendars can't be reached the pages
+// show an error and a Refresh button instead of old data.
+const FALLBACK_EVENTS = [];
 
 // ── Canonical cell-name order (as defined by the pastor) ────────────────────
 const CELL_ORDER = [
@@ -86,6 +82,69 @@ function parseLine(line) {
     if (room && cg) return { room, cg };
   }
   return null;
+}
+
+// ── "Unassigned" rooms ─────────────────────────────────────────────────────
+// A YA Cell event with no description lines still books rooms (as calendar
+// room resources / location). Those rooms are listed as "<room>: Unassigned"
+// so the team can see what's reserved but not yet given to a cell.
+const UNASSIGNED = 'Unassigned';
+function isUnassigned(cg) { return String(cg).trim().toLowerCase() === 'unassigned'; }
+// "BY-3-M3-6 (30)" → "M3-6", "BY-4-GUEST LOUNGE (50)" → "Guest Lounge", "SMCC-G-CPK6 (80)" → "CPK 6"
+function cleanResourceName(s) {
+  s = String(s).replace(/\s*\([^)]*\)/g, '').trim().replace(/^[A-Z]+-[A-Z0-9]+-/, '');
+  let m;
+  if ((m = s.match(/^CPK\s*(\d+)$/i))) return 'CPK ' + m[1];
+  if (/^boardroom$/i.test(s)) return 'Office Boardroom';
+  if (/^M\d/i.test(s)) return s.toUpperCase();
+  return s.toLowerCase().replace(/\b[a-z]/g, c => c.toUpperCase());
+}
+// Raw booked-room names for an event (calendar room resources, else the location text)
+function eventRoomsRaw(ev) {
+  let names = (ev.rooms || []).slice();
+  if (!names.length && ev.location) names = String(ev.location).split(/,\s*(?=[A-Z]+-[A-Z0-9]+-)/);
+  return names;
+}
+function eventRooms(ev) {
+  return [...new Set(eventRoomsRaw(ev).map(cleanResourceName).filter(Boolean))];
+}
+
+// Room "keys" used to tell whether a booked room is already named in the
+// description. Building rooms become "m3-6"-style keys (so "M3-6,7" covers
+// M3-6 and M3-7, and "Hospitality 2, M3-3" covers both); other rooms become
+// a normalised name ("guestlounge", "longhouse", "officeboardroom").
+function normRoomName(s) { return String(s).toLowerCase().replace(/^the\s+/, '').replace(/[^a-z0-9]/g, ''); }
+function roomKeysFromText(text) {
+  const keys = new Set();
+  let t = cleanRoomName(String(text)).toLowerCase();
+  t = t.replace(/m\s*-?\s*([36])\s*-\s*(\d+(?:\s*(?:,|&|and|\/)\s*\d+)*)/g, (m, b, nums) => {
+    nums.match(/\d+/g).forEach(n => keys.add('m' + b + '-' + n));
+    return ' ';
+  });
+  t.split(/,|&|\/|\band\b/).forEach(part => {
+    const n = normRoomName(part.trim());
+    if (n && !/^\d+$/.test(n)) keys.add('n:' + n);
+  });
+  return keys;
+}
+// Keys for one booked room resource, e.g. "BY-6-M6-3 (THE LONGHOUSE) (40)"
+// → m6-3 + longhouse; "BY-4-GUEST LOUNGE (50)" → guestlounge.
+function resourceKeys(raw) {
+  const keys = roomKeysFromText(cleanResourceName(raw));
+  (String(raw).match(/\(([^)]*)\)/g) || []).forEach(par => {
+    const n = normRoomName(par.slice(1, -1));
+    if (n && !/^\d+$/.test(n) && !/floor$/.test(n)) keys.add('n:' + n);
+  });
+  return keys;
+}
+function roomIsCovered(rKeys, covered) {
+  for (const k of rKeys) {
+    if (covered.has(k)) return true;
+    if (k.startsWith('n:') && k.length > 5) {
+      for (const c of covered) if (c.startsWith('n:') && c.length > 5 && (c.includes(k.slice(2)) || k.includes(c.slice(2)))) return true;
+    }
+  }
+  return false;
 }
 
 function cleanRoomName(room) {
@@ -206,36 +265,61 @@ function flashCopied(btn, label) {
   setTimeout(() => { btn.textContent = label || orig; btn.classList.remove('copied'); }, 1800);
 }
 
-// ── Calendar fetch — talks to OUR /api/calendar function, not Google or ────
-// Cowork directly. Both the public page and the team page call this same
-// helper; the difference between them is only which date range they ask for.
+// ── Calendar fetch — talks to OUR /api/calendar function (which reads BOTH ──
+// YA calendars server-side). Both the public page and the team page call this.
 //
-// Returns a Promise<Array<{date, description}>> — throws on failure so the
-// caller can decide how to fall back (FALLBACK_EVENTS, cached data, etc).
-async function fetchCalendarEvents({ startTime, endTime, fullText = 'YA Cell', maxResults = 100 }) {
-  const params = new URLSearchParams({ startTime, endTime, fullText, maxResults: String(maxResults) });
-  let allEvents = [];
-  let pageToken;
-  let guard = 0;
+// Returns a Promise<Array<{date, description}>>, one entry per date/time:
+//   - events from both calendars at the same start time are merged into one
+//   - "YA Cell" is matched in any capitalisation
+//   - an event with no description lists its booked rooms as "Room: Unassigned"
+// The array also carries `.failed` = names of calendars that couldn't be read.
+// Throws on failure so the caller can show an error (there is no cached data).
+async function fetchCalendarEvents({ startTime, endTime, fullText = 'YA Cell' }) {
+  const params = new URLSearchParams({ startTime, endTime, fullText });
+  const res = await fetch('/api/calendar?' + params.toString(), { cache: 'no-store' });
+  let data = null;
+  try { data = await res.json(); } catch (e) {}
+  if (!res.ok || !data || !Array.isArray(data.events)) {
+    throw new Error((data && data.error) || ('Calendar API error: ' + res.status));
+  }
 
-  do {
-    if (pageToken) params.set('pageToken', pageToken); else params.delete('pageToken');
-    const res = await fetch('/api/calendar?' + params.toString());
-    if (!res.ok) throw new Error('Calendar API error: ' + res.status);
-    const data = await res.json();
-    allEvents = allEvents.concat(
-      (data.events || [])
-        .filter(ev => ev.summary && ev.summary.includes('YA Cell') && ev.start)
-        .map(ev => ({
-          date: ev.start.dateTime || ev.start.date,
-          description: (ev.description || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n')
-        }))
-    );
-    pageToken = data.nextPageToken;
-    guard++;
-  } while (pageToken && guard < 10);
+  const byTime = new Map();
+  data.events
+    .filter(ev => ev.summary && /ya\s*cell/i.test(ev.summary) && ev.start)
+    .forEach(ev => {
+      const date = ev.start.dateTime || ev.start.date;
+      const key = new Date(date).getTime();
+      if (!byTime.has(key)) byTime.set(key, { date, lines: [], rooms: [] });
+      const desc = (ev.description || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
+      if (desc) byTime.get(key).lines.push(desc);
+      byTime.get(key).rooms.push(...eventRoomsRaw(ev));
+    });
 
-  return allEvents;
+  // Booked rooms not named in any "Room: Cell" line are listed as "Room: Unassigned"
+  // (all of them when a date has no description, the left-over ones otherwise).
+  const events = [...byTime.values()]
+    .map(e => {
+      const lines = [...new Set(e.lines.join('\n').split('\n').map(l => l.trim()).filter(Boolean))];
+      const covered = new Set();
+      lines.map(parseLine).filter(Boolean).forEach(({ room }) => roomKeysFromText(room).forEach(k => covered.add(k)));
+      const seen = new Set(), leftovers = [];
+      e.rooms.forEach(raw => {
+        const name = cleanResourceName(raw);
+        if (!name || seen.has(name)) return;
+        seen.add(name);
+        if (!roomIsCovered(resourceKeys(raw), covered)) leftovers.push(name + ': ' + UNASSIGNED);
+      });
+      return { date: e.date, description: lines.concat(leftovers).join('\n') };
+    })
+    .sort((a, b) => new Date(a.date) - new Date(b.date));
+  events.failed = data.failed || [];
+  return events;
+}
+
+// Note shown under the header when one calendar couldn't be read.
+function failedCalendarsNote(events) {
+  const f = (events && events.failed) || [];
+  return f.length ? `Could not read the ${f.join(', ')} calendar, so bookings from it are missing. Tap Refresh to try again.` : '';
 }
 
 // ============================================================================
@@ -370,6 +454,8 @@ function getBookingsForDate(events, dateStr) {
   (events || []).forEach(ev => {
     if (dateOnlySGT(ev.date) !== dateStr || !ev.description) return;
     ev.description.split('\n').map(parseLine).filter(Boolean).forEach(({ room, cg }) => {
+      // Rooms reserved for YA but not yet given to a cell are still free to request.
+      if (isUnassigned(cg)) return;
       const ri = roomOrderIndex(room);
       if (ri !== -1) bookedRoomIndices.add(ri); else unmatchedRooms.push(room);
       const ci = cellOrderIndex(cg);

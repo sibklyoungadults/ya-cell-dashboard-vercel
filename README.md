@@ -1,98 +1,29 @@
-# YA Cell Dashboard — Vercel deployment
+# YA Cell Dashboard
 
-A standalone dashboard with a **public view** (find your cell, see its bookings by month)
-and **Pastor/Admin tools** behind a passcode login (Bookings by Date, Bookings by Cell Group,
-Send Reminder, Newcomers). It fetches live data straight from the public `sibklyoungadults@gmail.com`
-Google Calendar via a Vercel serverless function — no dependency on Cowork.
+Public room-booking site for YA cell leaders, plus a password-protected team area.
 
-Files that matter:
-- `index.html` — the whole dashboard UI (calls `/api/events` for live data; `FALLBACK_EVENTS`
-  is a saved snapshot used if the fetch fails)
-- Favicons and `site.webmanifest` live in the repo root (`favicon.ico`, `favicon-*.png`,
-  `apple-touch-icon.png`, `icon-192/512.png`, `icon-maskable-512.png`) and are linked in
-  `index.html`.
-- `api/events.js` — a serverless function that calls the Google Calendar API with an
-  API key and returns the same `{ events: [...] }` shape the frontend expects
+| Where | What |
+|---|---|
+| `/` (public) | 📋 Bookings by Date · 🏠 Cell Bookings · 📝 Request a Booking · optional custom tab. Which tabs show is set in Portal Settings. |
+| `/team/` (login) | 🗂️ Bookings by Cell Group · 💬 Send Reminder · 👥 Newcomers · 📧 Email Templates · ⚙️ Portal Settings |
 
-## 1. Make the calendar public
+- **Live bookings** from two Google Calendars (sibklyoungadults + Young Adults), read on every load, every 5 minutes and on Refresh. No cached data.
+- **Unassigned rooms:** a "YA Cell" event with no description lists its booked rooms as Unassigned.
+- **Portal Settings:** show/hide public tabs, rename tabs, edit descriptions, welcome note, collection details, WhatsApp templates and a custom tab. Saved in `portal-config.json`.
 
-The API key approach only works for calendars set to public. In Google Calendar:
+**Setup, environment variables and how to publish settings: see [SETUP.md](SETUP.md).**
 
-1. Open Google Calendar (as the owner of `sibklyoungadults@gmail.com`, or an account
-   with edit access to that calendar).
-2. Hover the calendar in the left sidebar → **⋮ → Settings and sharing**.
-3. Under **Access permissions**, check **Make available to public**.
-4. Choose **See all event details** (not just free/busy).
+## Files
 
-**Heads up:** this makes the calendar's events readable by anyone who has the calendar
-ID and an API key — not just through this dashboard. If that's a concern, use a
-service-account share instead (view-only, calendar stays private) — happy to build
-that version if you'd rather not make it public.
-
-## 2. Get a Google Calendar API key
-
-1. Go to [console.cloud.google.com](https://console.cloud.google.com/) and create a
-   new project (or use an existing one).
-2. In **APIs & Services → Library**, search for **Google Calendar API** and click
-   **Enable**.
-3. In **APIs & Services → Credentials**, click **Create Credentials → API key**.
-4. Copy the key. Click **Restrict key** and:
-   - Under **API restrictions**, choose **Restrict key** → select **Google Calendar
-     API** only.
-   - Under **Application restrictions**, you can leave it unrestricted for now
-     (server-side calls from Vercel don't have a browser origin/IP you can pin easily)
-     — the API-only restriction above is what actually matters since this key never
-     reaches the browser.
-
-## 3. Push this project to GitHub
-
-```bash
-cd ya-cell-dashboard-vercel
-git init
-git add .
-git commit -m "YA Cell dashboard, live Google Calendar via Vercel"
-```
-
-Create a new empty repo on [github.com/new](https://github.com/new), then:
-
-```bash
-git remote add origin https://github.com/<your-username>/ya-cell-dashboard.git
-git branch -M main
-git push -u origin main
-```
-
-## 4. Import into Vercel
-
-1. Go to [vercel.com/new](https://vercel.com/new) and sign in (GitHub login is easiest).
-2. Click **Import** next to the `ya-cell-dashboard` repo.
-3. Framework preset: leave as **Other** — no build command needed, Vercel will serve
-   `index.html` as-is and auto-detect `api/events.js` as a serverless function.
-4. Before deploying, expand **Environment Variables** and add:
-   - Key: `GOOGLE_CALENDAR_API_KEY`
-   - Value: the API key from step 2
-5. Click **Deploy**.
-
-## 5. Verify
-
-Once deployed, visit `https://your-project.vercel.app` — the status dot in the header
-should turn green ("Live · just now") within a couple seconds. If it shows "Cached data"
-instead, open `https://your-project.vercel.app/api/events?timeMin=2026-07-30T00:00:00%2B08:00&timeMax=2026-09-13T00:00:00%2B08:00`
-directly in the browser to see the raw error message (usually a missing/incorrect
-API key, the Calendar API not enabled, or the calendar not actually public yet).
-
-Share the `vercel.app` URL (or add a custom domain in Vercel's project settings) with
-your third party — they'll see the same live room bookings, WA message templates, and
-can upload their own newcomer CSV independently (that part stays entirely in-browser,
-per visitor, same as before).
-
-## Updating later
-
-Any change to `index.html` (e.g. WhatsApp template wording, the AV setup link) — edit
-the file, commit, push. Vercel redeploys automatically on every push to `main`.
-
-## Admin passcode
-
-The Pastor/Admin login compares a SHA-256 hash of the entered passcode with `ADMIN_HASH` in
-`index.html`. This only hides the admin tabs; it is not real security because the page source
-is public. To change the passcode, run
-`echo -n "newpass" | shasum -a 256` and paste the result into `ADMIN_HASH`.
+| File | Purpose |
+|---|---|
+| `index.html` | Public site |
+| `team/index.html`, `team/login.html` | Team area (protected by `middleware.js`) |
+| `shared/booking-utils.js` | Calendar fetch + merge, Unassigned rooms, parsing helpers (both sites) |
+| `shared/portal.js` | Portal Settings loading, preview, WhatsApp templates (both sites) |
+| `shared/dashboard.css` | Styles for both sites |
+| `portal-config.json` | Portal Settings values (edit via Team → ⚙️ Portal Settings) |
+| `api/calendar.js` | Reads both calendars with `GOOGLE_CALENDAR_API_KEY` |
+| `api/login.js`, `api/logout.js`, `lib/session.js`, `middleware.js` | Team login |
+| `api/submit-booking.js`, `lib/google-sheets.js` | Request a Booking → Google Sheet |
+| `vercel.json` | Turns off caching for settings and API responses |
