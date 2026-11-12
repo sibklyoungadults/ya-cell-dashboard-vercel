@@ -6,11 +6,15 @@
 // API key: it is stored as GOOGLE_CALENDAR_API_KEY in Vercel and the key
 // should be restricted to the Calendar API only in Google Cloud Console.
 //
-// Calendars read (both must be "Make available to public → See all event
+// Calendars read (each must be "Make available to public → See all event
 // details"; see SETUP.md):
 //   - sibklyoungadults@gmail.com
-//   - Young Adults (sibkl.org.my_jfku94u1g9l5ju3sb7or5j9obc@group.calendar.google.com)
 //   - plus GOOGLE_CALENDAR_ID if it is set and is a different calendar
+//
+// The Young Adults calendar (sibkl.org.my Workspace) can't be made public, so
+// its YA CELL events reach the site by inviting sibklyoungadults@gmail.com as a
+// guest: they then appear on that public calendar. If Young Adults is ever made
+// public, add it back to CALENDARS below (the commented line).
 //
 // This route is intentionally PUBLIC (no session check): both the public
 // pages and the password-gated team pages call it, and which room/cell is
@@ -23,7 +27,7 @@
 
 const CALENDARS = [
   { id: 'sibklyoungadults@gmail.com', name: 'sibklyoungadults' },
-  { id: 'sibkl.org.my_jfku94u1g9l5ju3sb7or5j9obc@group.calendar.google.com', name: 'Young Adults' }
+  // { id: 'sibkl.org.my_jfku94u1g9l5ju3sb7or5j9obc@group.calendar.google.com', name: 'Young Adults' },
 ];
 
 function calendarList() {
