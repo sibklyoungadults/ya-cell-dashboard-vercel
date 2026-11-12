@@ -41,10 +41,11 @@
 
   Tabs, their names, descriptions and whether leaders see them come from
   /portal-config.json (edit from Team → ⚙️ Portal Settings). Tabs:
-    0. Cell Bookings     — pick your cell → its upcoming bookings by month.
-    0b. Custom tab       — free text card, off by default.
-    1. Bookings by Date  — read-only view; rooms reserved with no cell show as "Unassigned".
-    2. Request a Booking — new form. A leader picks a cell group, date, time
+    1. Cell Bookings     — pick your cell → its upcoming bookings by month (the default page).
+    2. Bookings by Date  — read-only view; rooms reserved with no cell show as "Unassigned".
+       Hidden from leaders by default.
+    4. Custom tab        — free text card, off by default.
+    3. Request a Booking — form, hidden from leaders by default. A leader picks a cell group, date, time
        slot (7:00–11:00 PM) and instruments; the form checks /api/calendar
        for that date to (a) only show rooms NOT already booked that date,
        and (b) block submission if their cell group already has a booking
@@ -59,30 +60,23 @@
 ---------------------------------------------------------------------------->
 
 <!-- Navigation -->
-<div class="nav">
-  <button class="nav-tab active" id="tab-rooms"   onclick="switchPage('rooms')">📋 Bookings by Date</button>
-  <button class="nav-tab"        id="tab-cells"   onclick="switchPage('cells')">🏠 Cell Bookings</button>
-  <button class="nav-tab"        id="tab-request" onclick="switchPage('request')">📝 Request a Booking</button>
+<div class="nav" id="publicNav">
+  <button class="nav-tab active" id="tab-cells"   onclick="switchPage('cells')">🏠 Cell Bookings</button>
+  <button class="nav-tab"        id="tab-rooms"   onclick="switchPage('rooms')" style="display:none">📋 Bookings by Date</button>
+  <button class="nav-tab"        id="tab-request" onclick="switchPage('request')" style="display:none">📝 Request a Booking</button>
   <button class="nav-tab"        id="tab-custom"  onclick="switchPage('custom')" style="display:none">📌 Notes</button>
 </div>
 <div class="welcome-note" id="welcomeNote" hidden></div>
 
 <!-- Page: Bookings by Date -->
-<div id="page-rooms" class="page">
-  <div class="panel-preview-row">
-    <div class="panel-preview"><strong>🗓️ Room Bookings</strong>You're here</div>
-    <div class="panel-preview"><strong>🙋 Host Roster</strong>Coming soon</div>
-    <div class="panel-preview"><strong>💧 Baptism</strong>Coming soon</div>
-    <div class="panel-preview"><strong>🎓 DNA &amp; Member Installation</strong>Coming soon</div>
-  </div>
-
+<div id="page-rooms" class="page" style="display:none">
   <div class="tab-intro" data-intro="rooms"></div>
   <div class="chips-row" id="eventChips"></div>
   <div id="roomsContent"></div>
 </div>
 
 <!-- Page: Cell Bookings (pick your cell → its bookings, grouped by month) -->
-<div id="page-cells" class="page" style="display:none">
+<div id="page-cells" class="page">
   <div id="pubContent"></div>
 </div>
 
@@ -195,6 +189,7 @@ function applyPortal() {
     b.textContent = tabCfg(t).label || b.textContent;
     b.style.display = tabVisible(t) ? '' : 'none';
   });
+  document.getElementById('publicNav').style.display = PUBLIC_TABS.filter(tabVisible).length > 1 ? '' : 'none';
   renderPortalIntros(CFG);
   const w = document.getElementById('welcomeNote'), wn = (CFG.welcomeNote || '').trim();
   w.innerHTML = rich(wn); w.hidden = !wn;
