@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "welcomeNote": "",
+  "tabs": {
+    "rooms": {
+      "label": "📋 Bookings by Date",
+      "showToLeaders": true,
+      "intro": "All YA Cell room bookings for one date. Pick a date above. ❄️ marks rooms that need the aircon remote. “Unassigned” means the room is reserved for YA but no cell has been given it yet."
+    },
+    "cells": {
+      "label": "🏠 Cell Bookings",
+      "showToLeaders": true,
+      "intro": "Find your cell group to see its upcoming room bookings. Tap a booking for key, aircon remote and instrument collection details."
+    },
+    "request": {
+      "label": "📝 Request a Booking",
+      "showToLeaders": true,
+      "intro": ""
+    },
+    "custom": {
+      "label": "📌 Notes",
+      "showToLeaders": false,
+      "enabled": false,
+      "intro": "",
+      "content": "Write anything leaders should know here: announcements, contacts, room rules.\n\nUse *asterisks* for bold. Links like https://example.com become clickable."
+    },
+    "celllist": {
+      "label": "🗂️ Bookings by Cell Group",
+      "intro": "Every cell’s upcoming dates and rooms. Tap 📋 Copy for a WhatsApp-ready summary of one cell, or Copy All for every cell. Rooms with no cell yet are grouped under Unassigned."
+    },
+    "wagen": {
+      "label": "💬 Send Reminder",
+      "intro": "Ready-to-send WhatsApp reminders for each cell on the chosen date, with key, AV guide and return instructions. Rooms that need the aircon remote use Template 2. Tap 📋 Copy and paste it into the cell’s chat."
+    },
+    "newcomers": {
+      "label": "👥 Newcomers",
+      "intro": "Load your newcomer list (CSV) to sort and filter by last contact. Last-contacted dates in amber are 31–60 days ago, and red means 60+ days. The file stays on your device and isn’t uploaded or shared."
+    },
+    "edm": {
+      "label": "📧 Email Templates",
+      "intro": ""
+    }
+  },
+  "collection": {
+    "key": "🔑 *Key*: collect/return at guard post (level 4). Can collect from 5pm onwards.",
+    "av": "🎥 *Sound system & projector guide*: {av_link}",
+    "aircon": "❄️ *Aircon remote*: collect/return at guard post (level 4). Please switch off all aircons.",
+    "piano": "🎹 *Piano*: collect/return at office front desk.",
+    "guitar": "🎸 *Guitar*: collect/return at office front desk.",
+    "signage": "🪧 *CG signage*: return to guard post (level 4) together with the keys."
+  },
+  "wa": {
+    "avLink": "https://tiny.cc/ya26cgroom",
+    "template1": "*Date:* {date}\n\n*Cell group:* {cell}\n\n*Location:* {location}\n\n*Note:*\n#. *Key collection/return*🔑: guard post (level 4).\n- Can collect anytime from 5pm & onwards\n#. *Sound system & projector setup guide*🎥: {av_link}\n{extras}\n#. *CG Signange return*🪧: guard post (level 4)\n- Pls return together with keys ✨",
+    "template2": "*Date:* {date}\n\n*Cell group:* {cell}\n\n*Location:* {location}\n\n*Note:*\n#. *Key collection/return*🔑: guard post (level 4).\n- Can collect anytime from 5pm & onwards\n#. *Sound system & projector setup guide*🎥: {av_link}\n#. *Aircon Remote collection/return* ❄️: guard post (level 4)\n- Pls check all aircons are switched off ☺️\n{extras}\n#. *CG Signange return*🪧: guard post (level 4)\n- Pls return together with keys ✨",
+    "pianoLine": "#. *Piano collection/return*🎹: office front desk",
+    "guitarLine": "#. *Guitar collection/return*🎸: office front desk"
+  }
+}

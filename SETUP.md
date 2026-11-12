@@ -6,16 +6,23 @@ This is written for whoever maintains this next, even if that's not the person w
 
 Two sites sharing one codebase:
 
-- **Public site** (`/index.html`) — anyone with the link can see "Bookings by Date" and submit a room booking **request** via the "Request a Booking" tab (which writes to a Google Sheet for a human to review — see step 4b below). No login. This is also where future public panels (Host Roster, Baptism, DNA & Member Installation) will live later.
-- **Team area** (`/team/index.html`) — password-gated. Has Bookings by Cell Group, Send Reminder, Newcomers, and Email Templates.
+- **Public site** (`/index.html`) — anyone with the link can see "Bookings by Date", "Cell Bookings" (pick your cell → its upcoming bookings by month), an optional custom tab, and submit a room booking **request** via the "Request a Booking" tab (which writes to a Google Sheet for a human to review — see step 4b below). No login. Which of these tabs leaders see is set in ⚙️ Portal Settings. This is also where future public panels (Host Roster, Baptism, DNA & Member Installation) will live later.
+- **Team area** (`/team/index.html`) — password-gated. Has Bookings by Cell Group, Send Reminder, Newcomers, Email Templates, and ⚙️ Portal Settings.
 
-There's no database and no user accounts — just one shared team password, and calendar data pulled live from Google Calendar on every page load.
+There's no database and no user accounts — just one shared team password, and calendar data pulled live from **two** Google Calendars on every page load (no cached data):
+
+| Calendar | ID |
+|---|---|
+| sibklyoungadults | `sibklyoungadults@gmail.com` |
+| Young Adults | `sibkl.org.my_jfku94u1g9l5ju3sb7or5j9obc@group.calendar.google.com` |
+
+Both IDs are in `api/calendar.js`. Events whose title contains "YA Cell" (any capitalisation) are merged by start time. An event with no description lists its booked rooms as **Unassigned** (shown on Bookings by Date and in the team area; those rooms still count as free on the request form).
 
 ## One-time setup (do these in order)
 
-### 1. Make the YA Cell Google Calendar publicly readable
+### 1. Make BOTH YA calendars publicly readable
 
-The site reads events with a plain API key (no OAuth), which only works if the calendar allows public read access.
+The site reads events with a plain API key (no OAuth), which only works if each calendar allows public read access. Do the steps below for **both** calendars in the table above. The Young Adults calendar belongs to the sibkl.org.my Google Workspace: if "Make available to public" is greyed out, a Workspace admin must allow external sharing first. If one calendar can't be read, the site still shows the other and says which one is missing.
 
 1. Open Google Calendar, signed in as the calendar's owner (`sibklyoungadults@gmail.com` or whoever manages it).
 2. Find the "YA Cell" calendar in the left sidebar → click the three dots → **Settings and sharing**.
@@ -46,10 +53,12 @@ In the Vercel project → **Settings → Environment Variables**, add these four
 | `TEAM_PASSWORD` | Whatever password the team will type in at `/team/login.html`. Change it any time by just updating this value — no code change needed. |
 | `SESSION_SECRET` | A long random string. Generate one in Terminal with `openssl rand -base64 32`. Anyone who has this can forge a valid login, so treat it like a password. |
 | `GOOGLE_CALENDAR_API_KEY` | The key from step 2. |
-| `GOOGLE_CALENDAR_ID` | The calendar ID from step 1 (e.g. `sibklyoungadults@gmail.com`). |
+| `GOOGLE_CALENDAR_ID` | **Optional.** Both YA calendars are built into `api/calendar.js`. Set this only to add a third calendar. |
 | `GOOGLE_SERVICE_ACCOUNT_EMAIL` | From step 4b below. |
 | `GOOGLE_SERVICE_ACCOUNT_KEY` | From step 4b below. |
 | `BOOKING_SHEET_ID` | From step 4b below. |
+
+Tick **Production** *and* **Preview** for each variable, otherwise preview deployments can't load bookings or log in. For the API key, set *Application restrictions* to **None** (server calls have no website referrer) and keep *API restrictions* on **Google Calendar API**.
 
 After adding them, go to **Deployments** → click the **⋯** on the latest deployment → **Redeploy** (environment variable changes need a redeploy to take effect).
 
@@ -121,3 +130,14 @@ Add it as a new tab inside `/team/index.html` the same way Cell Group / Send Rem
 
 **The Room dropdown on the booking form always says "No rooms available"**
 → This reads live calendar data the same way Bookings by Date does, so it's usually the same root cause as "Calendar data isn't showing" above — check that first. If calendar data IS showing correctly but rooms still look wrong, double-check `BOOKABLE_ROOMS` in `shared/booking-utils.js` still matches how rooms are actually written in calendar event descriptions (e.g. if someone starts typing a 9th room name that doesn't match any entry, it's silently ignored rather than wrongly blocking an existing room).
+
+
+## ⚙️ Portal Settings
+
+Team → **⚙️ Portal Settings** controls the public site and the wording in the team area. Everything it edits lives in **`/portal-config.json`** (if that file is missing or broken, the defaults in `shared/portal.js` are used).
+
+- **What you can change:** which public tabs leaders see, every tab's name and description, a welcome note on the public site, the collection details on Cell Bookings, both WhatsApp templates + AV link, and a custom public tab.
+- **👁 Preview as leader:** opens the public site in a new tab with your unsaved edits (stored only in your browser). Nothing is published.
+- **Publishing:** Vercel can't write files, so **Save changes → Confirm** copies the new settings. In GitHub open `portal-config.json` → ✏️ Edit → select all → paste → **Commit changes**. Vercel redeploys in about a minute. Undo by reverting that commit.
+- **WhatsApp placeholders:** `{date}` `{cell}` `{location}` `{av_link}`; `{extras}` on its own line adds the piano/guitar lines; lines starting `#.` are auto-numbered; lines starting `- ` become WhatsApp bullets.
+- `portal-config.json` is publicly readable (it's a static file), so never put passwords or personal details in it.
