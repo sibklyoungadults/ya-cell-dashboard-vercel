@@ -13,19 +13,19 @@ const PORTAL_DEFAULTS = {
   "version": 1,
   "welcomeNote": "",
   "tabs": {
-    "rooms": {
-      "label": "📋 Bookings by Date",
-      "showToLeaders": true,
-      "intro": "All YA Cell room bookings for one date. Pick a date above. ❄️ marks rooms that need the aircon remote. “Unassigned” means the room is reserved for YA but no cell has been given it yet."
-    },
     "cells": {
       "label": "🏠 Cell Bookings",
       "showToLeaders": true,
       "intro": "Find your cell group to see its upcoming room bookings. Tap a booking for key, aircon remote and instrument collection details."
     },
+    "rooms": {
+      "label": "📋 Bookings by Date",
+      "showToLeaders": false,
+      "intro": "All YA Cell room bookings for one date. Pick a date above. ❄️ marks rooms that need the aircon remote. “Unassigned” means the room is reserved for YA but no cell has been given it yet."
+    },
     "request": {
       "label": "📝 Request a Booking",
-      "showToLeaders": true,
+      "showToLeaders": false,
       "intro": ""
     },
     "custom": {
@@ -69,7 +69,7 @@ const PORTAL_DEFAULTS = {
   }
 };
 const PORTAL_DRAFT_KEY = 'yaPortalDraft';
-const PUBLIC_TABS = ['rooms', 'cells', 'request', 'custom'];
+const PUBLIC_TABS = ['cells', 'rooms', 'request', 'custom'];
 const TEAM_TABS   = ['celllist', 'wagen', 'newcomers', 'edm'];
 
 function portalDeepCopy(o) { return JSON.parse(JSON.stringify(o)); }
