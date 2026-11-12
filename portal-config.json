@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "welcomeNote": "",
   "tabs": {
     "cells": {
@@ -21,8 +21,8 @@
       "label": "🔗 Leader's Links",
       "showToLeaders": true,
       "enabled": true,
-      "intro": "*All YA Links* 👇\nhttps://linktr.ee/sibklya\n\n\n1) LATEST YA Cell Directory: http://tiny.cc/ya26cg\n2) Cell chart: http://tiny.cc/cellchart\n3) YA Calendar: http://tiny.cc/ya26cal\n4) New Believer form: http://tiny.cc/newbeliever\n5) Request New Life Materials: http://tiny.cc/nlmatreq\n6) Cell Info Update Form: https://tiny.cc/updatecellinfo",
-      "content": "Write anything leaders should know here: announcements, contacts, room rules.\n\nUse *asterisks* for bold. Links like https://example.com become clickable."
+      "intro": "",
+      "content": "*All YA Links* 👇\nhttps://linktr.ee/sibklya\n\n\n1) LATEST YA Cell Directory: http://tiny.cc/ya26cg\n2) Cell chart: http://tiny.cc/cellchart\n3) YA Calendar: http://tiny.cc/ya26cal\n4) New Believer form: http://tiny.cc/newbeliever\n5) Request New Life Materials: http://tiny.cc/nlmatreq\n6) Cell Info Update Form: https://tiny.cc/updatecellinfo"
     },
     "celllist": {
       "label": "🗂️ Bookings by Cell Group",
