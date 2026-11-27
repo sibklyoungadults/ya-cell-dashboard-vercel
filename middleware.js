@@ -7,14 +7,15 @@
 // the /team pages "login required" — hiding a nav tab in JS alone would NOT
 // be secure, since the page's HTML would still be sent to anyone who asks.
 //
-// `matcher` below scopes this to /team/* only — the public site (/) and the
-// API routes (login/calendar) are never touched by this file.
+// `matcher` below scopes this to /team/* and /api/ya-cells (Cell Intro data,
+// team-only) — the public site (/) and the other API routes (login/calendar)
+// are never touched by this file.
 // ============================================================================
 import { next } from '@vercel/edge';
 import { COOKIE_NAME, verifySessionToken, parseCookies } from './lib/session.js';
 
 export const config = {
-  matcher: ['/team/:path*']
+  matcher: ['/team/:path*', '/api/ya-cells']
 };
 
 export default async function middleware(request) {
@@ -31,6 +32,11 @@ export default async function middleware(request) {
   const token = cookies[COOKIE_NAME];
 
   const valid = Boolean(secret) && Boolean(token) && await verifySessionToken(token, secret);
+  if (!valid && url.pathname.startsWith('/api/')) {
+    return new Response(JSON.stringify({ error: 'Not logged in. Please log in to the team area again.' }), {
+      status: 401, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' }
+    });
+  }
   if (!valid) {
     const loginUrl = new URL('/team/login.html', request.url);
     loginUrl.searchParams.set('next', url.pathname);
