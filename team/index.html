@@ -6,6 +6,7 @@
 <title>YA Cell Team Dashboard</title>
 <meta name="robots" content="noindex, nofollow">
 <link rel="stylesheet" href="/shared/dashboard.css">
+<link rel="stylesheet" href="/features/ya-cells/ya-cells.css">
 </head>
 <body>
 
@@ -32,6 +33,7 @@
   <button class="nav-tab active" id="tab-dates"     onclick="switchPage('dates')">📋 Bookings by Date</button>
   <button class="nav-tab"        id="tab-celllist"  onclick="switchPage('celllist')">🗂️ Bookings by Cell Group</button>
   <button class="nav-tab"        id="tab-wagen"     onclick="switchPage('wagen')">💬 Send Reminder</button>
+  <button class="nav-tab"        id="tab-yacells"   onclick="switchPage('yacells')">📇 Cell Intro</button>
   <button class="nav-tab"        id="tab-newcomers" onclick="switchPage('newcomers')">👥 Newcomers</button>
   <button class="nav-tab"        id="tab-edm"       onclick="switchPage('edm')">📧 Email Templates</button>
   <button class="nav-tab"        id="tab-settings"  onclick="switchPage('settings')">⚙️ Portal Settings</button>
@@ -64,6 +66,12 @@
 </div>
 
 <!-- Page: Newcomers -->
+<!-- Page: Cell Intro (ready-to-copy WhatsApp intro per YA cell; see features/ya-cells/) -->
+<div id="page-yacells" class="page" style="display:none">
+  <div class="tab-intro" data-intro="yacells"></div>
+  <div id="yaCellsRoot"></div>
+</div>
+
 <div id="page-newcomers" class="page" style="display:none">
   <div class="tab-intro" data-intro="newcomers"></div>
   <label class="upload-zone" id="uploadZone"
@@ -216,6 +224,7 @@
 
 <script src="/shared/booking-utils.js"></script>
 <script src="/shared/portal.js"></script>
+<script src="/features/ya-cells/ui.js"></script>
 <script>
 // ── AUTH ─────────────────────────────────────────────────────────────────
 async function doLogout() {
@@ -310,11 +319,12 @@ document.addEventListener('visibilitychange', () => {
 
 // ── PAGE SWITCH ──────────────────────────────────────────────────────────
 function switchPage(page) {
-  ['dates','celllist','wagen','newcomers','edm','settings'].forEach(p => {
+  ['dates','celllist','wagen','yacells','newcomers','edm','settings'].forEach(p => {
     document.getElementById('page-' + p).style.display = p === page ? '' : 'none';
     document.getElementById('tab-' + p).classList.toggle('active', p === page);
   });
   if (page === 'edm') ensureEdmLoaded();
+  if (page === 'yacells' && window.YaCells) YaCells.show();
 }
 
 // ── COPY TO CLIPBOARD helpers already in booking-utils.js (copyToClipboard, flashCopied) ──
@@ -763,7 +773,7 @@ const EDM_TEMPLATES_B64 = "PCFET0NUWVBFIGh0bWw+CjxodG1sIGxhbmc9ImVuIj4KPGhlYWQ+C
 let SAVED_CFG = portalDeepCopy(PORTAL_DEFAULTS);
 let DRAFT = portalDeepCopy(PORTAL_DEFAULTS);
 const TAB_NAMES = { rooms:'Bookings by Date', cells:'Cell Bookings', request:'Request a Booking', custom:'Custom tab',
-  celllist:'Bookings by Cell Group', wagen:'Send Reminder', newcomers:'Newcomers', edm:'Email Templates' };
+  celllist:'Bookings by Cell Group', wagen:'Send Reminder', yacells:'Cell Intro', newcomers:'Newcomers', edm:'Email Templates' };
 const COLLECTION_FIELDS = [['key','Key'],['av','Sound system & projector guide'],['aircon','Aircon remote (only when needed)'],['piano','Piano (only when needed)'],['guitar','Guitar (only when needed)'],['signage','CG signage']];
 function getPath(o, path){ return path.split('.').reduce((a,k)=>a==null?a:a[k], o); }
 function setPath(o, path, v){ const ks=path.split('.'); let a=o; ks.slice(0,-1).forEach(k=>{ if(a[k]==null||typeof a[k]!=='object') a[k]={}; a=a[k]; }); a[ks[ks.length-1]]=v; }
