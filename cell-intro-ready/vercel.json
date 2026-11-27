@@ -1,0 +1,22 @@
+{
+  "headers": [
+    {
+      "source": "/portal-config.json",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, max-age=0"
+        }
+      ]
+    },
+    {
+      "source": "/api/((?!ya-cells).*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, max-age=0"
+        }
+      ]
+    }
+  ]
+}
