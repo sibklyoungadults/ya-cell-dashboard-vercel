@@ -2,10 +2,14 @@
   "name": "ya-cell-dashboard",
   "version": "2.0.0",
   "private": true,
+  "scripts": {
+    "test": "node --test features/ya-cells/*.test.js"
+  },
   "engines": {
     "node": ">=18"
   },
   "dependencies": {
-    "@vercel/edge": "^1.2.1"
+    "@vercel/edge": "^1.2.1",
+    "papaparse": "^5.4.1"
   }
 }

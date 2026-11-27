@@ -132,6 +132,17 @@ Add it as a new tab inside `/team/index.html` the same way Cell Group / Send Rem
 → This reads live calendar data the same way Bookings by Date does, so it's usually the same root cause as "Calendar data isn't showing" above — check that first. If calendar data IS showing correctly but rooms still look wrong, double-check `BOOKABLE_ROOMS` in `shared/booking-utils.js` still matches how rooms are actually written in calendar event descriptions (e.g. if someone starts typing a 9th room name that doesn't match any entry, it's silently ignored rather than wrongly blocking an existing room).
 
 
+## 📇 Cell Intro tab (YA cells)
+
+Reads the public cell chart (tab **MASTER**) with no API key; the sheet only needs "Anyone with the link can view". Optional environment variables, defaulting to the current 2026 cell chart:
+
+| Name | Value |
+|---|---|
+| `YA_SHEET_ID` | `1GXXuCdNCSE30HElHC7-LKWeMLVDarBmOEuyOeevJnts` |
+| `YA_SHEET_GID` | `497483873` (the MASTER tab) |
+
+The `/api/ya-cells` route is behind the team login (`middleware.js`). See README → "YA Cells tab – how to change the template".
+
 ## ⚙️ Portal Settings
 
 Team → **⚙️ Portal Settings** controls the public site and the wording in the team area. Everything it edits lives in **`/portal-config.json`** (if that file is missing or broken, the defaults in `shared/portal.js` are used).

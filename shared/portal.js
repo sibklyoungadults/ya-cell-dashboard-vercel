@@ -50,6 +50,10 @@ const PORTAL_DEFAULTS = {
     "edm": {
       "label": "📧 Email Templates",
       "intro": ""
+    },
+    "yacells": {
+      "label": "📇 Cell Intro",
+      "intro": "Every active Young Adults cell as ready-to-paste WhatsApp text, read live from the cell chart. Search, filter by day or area, then tap 📋 Copy. To change the wording, edit features/ya-cells/template.js."
     }
   },
   "collection": {
@@ -70,7 +74,7 @@ const PORTAL_DEFAULTS = {
 };
 const PORTAL_DRAFT_KEY = 'yaPortalDraft';
 const PUBLIC_TABS = ['cells', 'rooms', 'request', 'custom'];
-const TEAM_TABS   = ['celllist', 'wagen', 'newcomers', 'edm'];
+const TEAM_TABS   = ['celllist', 'wagen', 'yacells', 'newcomers', 'edm'];
 
 function portalDeepCopy(o) { return JSON.parse(JSON.stringify(o)); }
 // Fill any missing keys from the defaults (so an older portal-config.json keeps working)
